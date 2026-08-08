@@ -9,9 +9,16 @@ const sshConfigSchema = z.object({
   password: z.string(),
 });
 
+export interface SshResponse {
+  success: boolean;
+  message: string;
+  folder?: string;
+  timestamp?: string;
+}
+
 export const validateSshConnection = createServerFn({ method: "POST" })
   .inputValidator((data) => sshConfigSchema.parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<SshResponse> => {
     return new Promise((resolve) => {
       const conn = new Client();
       conn.on('ready', () => {
@@ -33,18 +40,14 @@ export const downloadCategoryToServer = createServerFn({ method: "POST" })
   .inputValidator((data) => z.object({
     serverIp: z.string(),
     sshUser: z.string().optional().default("root"),
-    sshPassword: z.string().optional(),
+    sshPassword: z.string(),
     sshPort: z.number().optional().default(22),
     categoryName: z.string(),
     items: z.array(z.any())
   }).parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<SshResponse> => {
     console.log(`[SSH] Iniciando download da categoria "${data.categoryName}" para ${data.serverIp}...`);
     
-    if (!data.sshPassword) {
-      return { success: false, message: "Senha SSH não fornecida." };
-    }
-
     return new Promise((resolve) => {
       const conn = new Client();
       conn.on('ready', () => {
@@ -67,17 +70,13 @@ export const downloadCategoryToServer = createServerFn({ method: "POST" })
             return;
           }
           
-          stream.on('close', (code: number) => {
+          stream.on('close', () => {
             conn.end();
             resolve({ 
               success: true, 
               message: `Comandos de download enviados! Os arquivos estão sendo baixados em background para ${folderPath}`,
               folder: folderPath
             });
-          }).on('data', (data: Buffer) => {
-            console.log('[SSH STDOUT] ' + data);
-          }).stderr.on('data', (data: Buffer) => {
-            console.log('[SSH STDERR] ' + data);
           });
         });
       }).on('error', (err) => {
