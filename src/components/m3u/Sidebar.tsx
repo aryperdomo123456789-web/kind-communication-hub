@@ -75,6 +75,12 @@ export function Sidebar({ activeView, setActiveView, data, setSearchQuery, class
         >
           <Server size={20}/> <span className="font-medium">Conectar Servidor</span>
         </button>
+        <button 
+          onClick={() => navigate("flussonic")} 
+          className={`p-3 rounded-xl transition-all flex items-center gap-3 ${activeView === "flussonic" ? "bg-orange-600 shadow-lg shadow-orange-600/20 text-white" : "text-neutral-400 hover:bg-neutral-800"}`}
+        >
+          <Tv size={20}/> <span className="font-medium">Gestão Flussonic</span>
+        </button>
       </nav>
     </div>
   );
