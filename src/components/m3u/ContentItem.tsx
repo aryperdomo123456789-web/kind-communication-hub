@@ -1,5 +1,6 @@
 import { Film, Tv, Play, CheckCircle2 } from "lucide-react";
-import { M3UItem } from "@/lib/m3u";
+import { M3UItem } from "@/lib/m3u/types";
+import { cn } from "@/lib/utils";
 
 interface ContentItemProps {
   item: M3UItem;
@@ -11,7 +12,10 @@ interface ContentItemProps {
 export function ContentItem({ item, isSelected, selectionMode, onToggle }: ContentItemProps) {
   return (
     <div 
-      className={`group relative aspect-[2/3] bg-[#1a1a1a] rounded-xl overflow-hidden border transition-all cursor-pointer ${isSelected ? "border-blue-500 ring-2 ring-blue-600/50" : "border-neutral-800 hover:border-neutral-600"}`}
+      className={cn(
+        "group relative aspect-[2/3] bg-[#1a1a1a] rounded-xl overflow-hidden border transition-all cursor-pointer",
+        isSelected ? "border-blue-500 ring-2 ring-blue-600/50" : "border-neutral-800 hover:border-neutral-600"
+      )}
       onClick={() => selectionMode ? onToggle(item.id) : null}
     >
       {item.logo ? (
