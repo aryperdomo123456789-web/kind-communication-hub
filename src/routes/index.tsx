@@ -9,7 +9,7 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const [data, setData] = useState<M3UParsed | null>(null);
-  const [m3uText, setM3uText] = useState("");
+  const [m3uText, setM3uText] = useState("http://servicedovod.shop:80//get.php?username=TesteCompanyHOST&password=392380odasw&type=m3u_plus&output=hls");
   const [activeView, setActiveView] = useState<"movies" | "series" | "live">("movies");
   
   // Navigation State
