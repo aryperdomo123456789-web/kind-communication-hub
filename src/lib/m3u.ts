@@ -35,17 +35,10 @@ export function parseM3U(content: string): M3UParsed {
   const lines = content.split("\n");
   const items: M3UItem[] = [];
   
-  let tempItem: {
-    id?: string;
-    name?: string;
-    logo?: string;
-    group?: string;
-    rawName?: string;
-    url?: string;
-    type?: "movie" | "series" | "live";
-    season?: string;
-    episode?: string;
-  } = {};
+  let currentName: string | null = null;
+  let currentLogo: string | null = null;
+  let currentGroup: string | null = null;
+  let currentRawName: string | null = null;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -57,17 +50,13 @@ export function parseM3U(content: string): M3UParsed {
       const commaIndex = line.lastIndexOf(",");
       const rawName = commaIndex !== -1 ? line.substring(commaIndex + 1).trim() : (nameMatch?.[1] || "Unknown");
 
-      const nameStr = nameMatch?.[1] || rawName;
-      tempItem = {
-        id: Math.random().toString(36).substring(7),
-        name: nameStr,
-        logo: logoMatch?.[1] || "",
-        group: groupMatch?.[1] || "Uncategorized",
-        rawName: rawName,
-      };
-    } else if (line.startsWith("http") && tempItem.name) {
+      currentName = nameMatch?.[1] || rawName;
+      currentLogo = logoMatch?.[1] || "";
+      currentGroup = groupMatch?.[1] || "Uncategorized";
+      currentRawName = rawName;
+    } else if (line.startsWith("http") && currentName !== null) {
       const url = line;
-      const rawName = tempItem.rawName || "";
+      const rawName = currentRawName || "";
       let type: "movie" | "series" | "live" = "live";
       let season: string | undefined;
       let episode: string | undefined;
@@ -87,10 +76,10 @@ export function parseM3U(content: string): M3UParsed {
       }
 
       items.push({
-        id: tempItem.id || Math.random().toString(36).substring(7),
-        name: tempItem.name,
-        logo: tempItem.logo,
-        group: tempItem.group || "Uncategorized",
+        id: Math.random().toString(36).substring(7),
+        name: currentName,
+        logo: currentLogo || "",
+        group: currentGroup || "Uncategorized",
         url: url,
         type: type,
         season: season,
@@ -98,7 +87,10 @@ export function parseM3U(content: string): M3UParsed {
         rawName: rawName,
       });
       
-      tempItem = {};
+      currentName = null;
+      currentLogo = null;
+      currentGroup = null;
+      currentRawName = null;
     }
   }
 
@@ -136,11 +128,15 @@ export function parseM3U(content: string): M3UParsed {
   seriesMap.forEach((seasonsMap, seriesName) => {
     const seasons: { number: string; episodes: M3UItem[] }[] = [];
     seasonsMap.forEach((episodes, number) => {
-      seasons.push({ number, episodes: episodes.sort((a, b) => Number(a.episode) - Number(b.episode)) });
+      seasons.push({ number, episodes: episodes.sort((a, b) => {
+        const epA = parseInt(a.episode || "0");
+        const epB = parseInt(b.episode || "0");
+        return epA - epB;
+      }) });
     });
     result.series.push({ 
       name: seriesName, 
-      seasons: seasons.sort((a, b) => Number(a.number) - Number(b.number)) 
+      seasons: seasons.sort((a, b) => parseInt(a.number) - parseInt(b.number)) 
     });
   });
 
