@@ -17,8 +17,8 @@ function Index() {
   const [selectedSeries, setSelectedSeries] = useState<string | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<string | null>(null);
 
-  const handleProcess = () => {
-    const parsed = parseM3U(m3uText);
+  const handleProcess = async () => {
+    const parsed = await parseM3U(m3uText);
     setData(parsed);
   };
 
