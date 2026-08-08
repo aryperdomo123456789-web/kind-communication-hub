@@ -120,8 +120,10 @@ export async function parseM3U(content: string): Promise<M3UParsed> {
           // Fallback inteligente: tenta pegar números no final do nome se for série
           const fallbackMatch = rawName.match(/(\d+)/g);
           if (fallbackMatch && fallbackMatch.length >= 2) {
-             season = fallbackMatch[fallbackMatch.length - 2].padStart(2, '0');
-             episode = fallbackMatch[fallbackMatch.length - 1].padStart(2, '0');
+             const sVal = fallbackMatch[fallbackMatch.length - 2];
+             const eVal = fallbackMatch[fallbackMatch.length - 1];
+             season = sVal ? sVal.padStart(2, '0') : "01";
+             episode = eVal ? eVal.padStart(2, '0') : "01";
           } else {
             season = "01";
             episode = "01";
