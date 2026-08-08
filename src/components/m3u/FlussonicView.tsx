@@ -1,11 +1,13 @@
-import { useState } from "react";
-import { Tv, FolderPlus, Plus, Loader2, CheckCircle2, AlertCircle, Info } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Tv, FolderPlus, Plus, Loader2, CheckCircle2, AlertCircle, Info, RefreshCcw } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { createFlussonicCategory, createFlussonicChannel, type FlussonicResponse } from "@/lib/flussonic.functions";
+import { createFlussonicCategory, createFlussonicChannel, listFlussonicCategories, type FlussonicResponse } from "@/lib/flussonic.functions";
 
 export function FlussonicView() {
   const [activeTab, setActiveTab] = useState<"category" | "channel">("category");
   const [loading, setLoading] = useState(false);
+  const [serverCategories, setServerCategories] = useState<string[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // States for Category
   const [catName, setCatName] = useState("");
@@ -15,16 +17,36 @@ export function FlussonicView() {
   const [selectedCat, setSelectedCat] = useState("");
   const [videoList, setVideoList] = useState("");
 
-  const createCatFn = useServerFn(createFlussonicCategory);
-  const createChannelFn = useServerFn(createFlussonicChannel);
+  const createCat = useServerFn(createFlussonicCategory);
+  const createChannel = useServerFn(createFlussonicChannel);
+  const listCats = useServerFn(listFlussonicCategories);
+
+  const refreshCategories = async () => {
+    setIsRefreshing(true);
+    try {
+      const res = await listCats();
+      if (res.success) setServerCategories(res.categories);
+    } catch (e) {
+      console.error("Erro ao listar categorias");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshCategories();
+  }, []);
 
   const handleCreateCategory = async () => {
     if (!catName) return alert("Dê um nome para a categoria!");
     setLoading(true);
     try {
-      const res = await createCatFn({ data: { name: catName } }) as FlussonicResponse;
+      const res = await createCat({ data: { name: catName } }) as FlussonicResponse;
       alert(res.message);
-      if (res.success) setCatName("");
+      if (res.success) {
+        setCatName("");
+        refreshCategories();
+      }
     } catch (e) {
       alert("Erro ao criar categoria.");
     } finally {
@@ -36,7 +58,7 @@ export function FlussonicView() {
     if (!channelName || !videoList) return alert("Preencha o nome do canal e a lista de vídeos!");
     setLoading(true);
     try {
-      const res = await createChannelFn({ 
+      const res = await createChannel({ 
         data: { 
           name: channelName, 
           category: selectedCat,
@@ -126,15 +148,32 @@ export function FlussonicView() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Categoria (Opcional)</label>
-                <input 
-                  type="text" 
-                  value={selectedCat}
-                  onChange={(e) => setSelectedCat(e.target.value)}
-                  placeholder="Ex: ano-na-escola"
-                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-orange-500 outline-none transition-all"
-                />
-                <p className="text-[10px] text-neutral-500 mt-1 italic">Deixe vazio se não quiser categoria.</p>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500">Categoria (Opcional)</label>
+                  <button onClick={refreshCategories} className="text-[10px] text-orange-500 hover:text-orange-400 flex items-center gap-1">
+                    <RefreshCcw size={10} className={isRefreshing ? "animate-spin" : ""} /> Atualizar
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <select 
+                    value={selectedCat}
+                    onChange={(e) => setSelectedCat(e.target.value)}
+                    className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-orange-500 outline-none transition-all text-sm"
+                  >
+                    <option value="">Nenhuma Categoria</option>
+                    {serverCategories.map(cat => (
+                      <option key={cat} value={cat}>{cat.toUpperCase()}</option>
+                    ))}
+                  </select>
+                  <input 
+                    type="text" 
+                    value={selectedCat}
+                    onChange={(e) => setSelectedCat(e.target.value)}
+                    placeholder="Ou digite nova..."
+                    className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-orange-500 outline-none transition-all"
+                  />
+                </div>
+                <p className="text-[10px] text-neutral-500 mt-1 italic">Escolha uma categoria existente ou digite o nome de uma nova.</p>
               </div>
 
               <div>
@@ -160,6 +199,21 @@ export function FlussonicView() {
 
             <div className="bg-black/20 rounded-2xl p-6 border border-white/5 space-y-4">
               <h3 className="font-bold text-orange-400 flex items-center gap-2">
+                <RefreshCcw size={18} className={isRefreshing ? "animate-spin" : ""} /> Categorias no Servidor
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {serverCategories.length > 0 ? (
+                  serverCategories.map(cat => (
+                    <span key={cat} className="px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full text-[10px] text-orange-300 font-mono">
+                      {cat}
+                    </span>
+                  ))
+                ) : (
+                  <p className="text-xs text-neutral-600">Nenhuma categoria encontrada no servidor.</p>
+                )}
+              </div>
+
+              <h3 className="font-bold text-orange-400 flex items-center gap-2 mt-6">
                 <AlertCircle size={18} /> Lógica de Guerrilha
               </h3>
               <ul className="space-y-3 text-sm text-neutral-400">
