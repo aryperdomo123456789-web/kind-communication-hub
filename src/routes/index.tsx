@@ -127,13 +127,13 @@ function Index() {
           
           <nav className="flex flex-col gap-1">
             <button onClick={() => { setActiveView("movies"); setSearchQuery(""); }} className={`p-3 rounded-xl transition-all flex items-center gap-3 ${activeView === "movies" ? "bg-blue-600 shadow-lg shadow-blue-600/20" : "text-neutral-400 hover:bg-neutral-800"}`}>
-              <Film size={20}/> <span className="font-medium">Filmes</span>
+              <Film size={20}/> <span className="font-medium">Filmes ({data?.movies.reduce((acc, cat) => acc + cat.items.length, 0) || 0})</span>
             </button>
             <button onClick={() => { setActiveView("series"); setSearchQuery(""); }} className={`p-3 rounded-xl transition-all flex items-center gap-3 ${activeView === "series" ? "bg-blue-600 shadow-lg shadow-blue-600/20" : "text-neutral-400 hover:bg-neutral-800"}`}>
-              <Tv size={20}/> <span className="font-medium">Séries</span>
+              <Tv size={20}/> <span className="font-medium">Séries ({data?.series.length || 0})</span>
             </button>
             <button onClick={() => { setActiveView("live"); setSearchQuery(""); }} className={`p-3 rounded-xl transition-all flex items-center gap-3 ${activeView === "live" ? "bg-blue-600 shadow-lg shadow-blue-600/20" : "text-neutral-400 hover:bg-neutral-800"}`}>
-              <Play size={20}/> <span className="font-medium">Ao Vivo</span>
+              <Play size={20}/> <span className="font-medium">Ao Vivo ({data?.live.reduce((acc, cat) => acc + cat.items.length, 0) || 0})</span>
             </button>
             
             <div className="h-px bg-neutral-800 my-4" />
