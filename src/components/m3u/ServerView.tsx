@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Server, Shield, Download, CheckCircle2, Loader2, Send, Terminal, Copy, Check } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { downloadCategoryToServer } from "@/lib/ssh.functions";
+import { downloadCategoryToServer, validateSshConnection } from "@/lib/ssh.functions";
 import { M3UItem } from "@/lib/m3u/types";
 
 interface ServerViewProps {
@@ -12,7 +12,7 @@ export function ServerView({ customCategories }: ServerViewProps) {
   const [serverIp, setServerIp] = useState("173.208.244.141");
   const [sshUser, setSshUser] = useState("root");
   const [sshPort, setSshPort] = useState("22");
-  const [sshPassword, setSshPassword] = useState("");
+  const [sshPassword, setSshPassword] = useState("mago3333123");
   const [sshStatus, setSshStatus] = useState<"disconnected" | "connecting" | "connected">("disconnected");
   const [downloadingCategory, setDownloadingCategory] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -27,16 +27,35 @@ export function ServerView({ customCategories }: ServerViewProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleConnect = () => {
+  const validateSshFn = useServerFn(validateSshConnection);
+
+  const handleConnect = async () => {
     if (!sshPassword) {
       alert("Por favor, insira a senha do SSH para autenticação segura.");
       return;
     }
     setSshStatus("connecting");
-    // Simulando tentativa de conexão com os dados fornecidos
-    setTimeout(() => {
-      setSshStatus("connected");
-    }, 2000);
+    try {
+      const result = await validateSshFn({
+        data: {
+          host: serverIp,
+          port: parseInt(sshPort),
+          username: sshUser,
+          password: sshPassword
+        }
+      });
+      
+      if (result.success) {
+        setSshStatus("connected");
+      } else {
+        alert("Falha na conexão: " + result.message);
+        setSshStatus("disconnected");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao tentar conectar via SSH. Verifique se os dados estão corretos.");
+      setSshStatus("disconnected");
+    }
   };
 
   const handleDownload = async (categoryName: string) => {
@@ -107,9 +126,11 @@ chmod +x /opt/lovable/bridge.sh && /opt/lovable/bridge.sh`}
                 </div>
                 <button 
                   onClick={() => {
-                    const cmd = `mkdir -p /opt/lovable && cat << 'EOF' > /opt/lovable/bridge.sh
+                    const cmd = `mkdir -p /opt/lovable && fuser -k 8080/tcp || true && cat << 'EOF' > /opt/lovable/bridge.sh
 #!/bin/bash
 PORT=8080
+echo "Limpando porta $PORT..."
+fuser -k $PORT/tcp 2>/dev/null || true
 echo "Lovable SSH Bridge starting on port $PORT..."
 python3 -m http.server $PORT &
 echo "Bridge is online at http://${serverIp}:$PORT"
