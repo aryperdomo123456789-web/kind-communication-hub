@@ -156,6 +156,7 @@ function Index() {
                   </div>
                   <div className="grid md:grid-cols-3 gap-4">
                     {[
+                      { title: "Capacidade Total", file: "DOCUMENTACAO_COMPLETA.md" },
                       { title: "Canal 24h Flussonic", file: "canal-24h-flussonic.md" },
                       { title: "Canal por Categoria", file: "canal-por-categoria-flussonic.md" },
                       { title: "Exemplos Práticos", file: "canal-por-categoria-flussonic-exemplos.md" }
