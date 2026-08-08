@@ -13,11 +13,18 @@ function Index() {
   
   // Listas M3U (PERSISTÊNCIA)
   const [m3uLists, setM3uLists] = useState<{name: string, url: string}[]>(() => {
-    const saved = localStorage.getItem("m3u_lists");
-    return saved ? JSON.parse(saved) : [
-      { name: "Principal", url: "http://servicedovod.shop:80//get.php?username=TesteCompanyHOST&password=392380odasw&type=m3u_plus&output=hls" },
-      { name: "Secundária", url: "http://ctfautt.cc:80/get.php?username=4nXdgX37oV&password=pLxSa2hRSP&type=m3u_plus&output=hls" }
-    ];
+    try {
+      const saved = typeof window !== 'undefined' ? localStorage.getItem("m3u_lists") : null;
+      return saved ? JSON.parse(saved) : [
+        { name: "Principal", url: "http://servicedovod.shop:80//get.php?username=TesteCompanyHOST&password=392380odasw&type=m3u_plus&output=hls" },
+        { name: "Secundária", url: "http://ctfautt.cc:80/get.php?username=4nXdgX37oV&password=pLxSa2hRSP&type=m3u_plus&output=hls" }
+      ];
+    } catch (e) {
+      return [
+        { name: "Principal", url: "http://servicedovod.shop:80//get.php?username=TesteCompanyHOST&password=392380odasw&type=m3u_plus&output=hls" },
+        { name: "Secundária", url: "http://ctfautt.cc:80/get.php?username=4nXdgX37oV&password=pLxSa2hRSP&type=m3u_plus&output=hls" }
+      ];
+    }
   });
   
   const [activeListUrl, setActiveListUrl] = useState(m3uLists[0]?.url || "");
@@ -28,8 +35,12 @@ function Index() {
   
   // Custom Categories
   const [customCategories, setCustomCategories] = useState<Record<string, M3UItem[]>>(() => {
-    const saved = localStorage.getItem("custom_categories");
-    return saved ? JSON.parse(saved) : {};
+    try {
+      const saved = typeof window !== 'undefined' ? localStorage.getItem("custom_categories") : null;
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
   });
   const [newCatName, setNewCatName] = useState("");
   const [selectionMode, setSelectionMode] = useState(false);
@@ -39,14 +50,21 @@ function Index() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleProcess = async (url: string) => {
+    if (!url) return;
     setIsLoading(true);
     setActiveListUrl(url);
     try {
+      console.log("Processando URL:", url);
       const parsed = await parseM3U(url);
-      setData(parsed);
-      setActiveView("movies");
+      if (parsed && (parsed.movies.length > 0 || parsed.series.length > 0 || parsed.live.length > 0)) {
+        setData(parsed);
+        // Só muda a view se estivermos vindo das configurações ou se não houver dados
+        if (activeView === "settings") setActiveView("movies");
+      } else {
+        console.warn("Nenhum dado retornado da M3U");
+      }
     } catch (error) {
-      console.error("Erro ao processar:", error);
+      console.error("Erro ao processar M3U:", error);
     } finally {
       setIsLoading(false);
     }
@@ -109,13 +127,13 @@ function Index() {
           
           <nav className="flex flex-col gap-1">
             <button onClick={() => { setActiveView("movies"); setSearchQuery(""); }} className={`p-3 rounded-xl transition-all flex items-center gap-3 ${activeView === "movies" ? "bg-blue-600 shadow-lg shadow-blue-600/20" : "text-neutral-400 hover:bg-neutral-800"}`}>
-              <Film size={20}/> <span className="font-medium">Filmes</span>
+              <Film size={20}/> <span className="font-medium">Filmes ({data?.movies.reduce((acc, cat) => acc + cat.items.length, 0) || 0})</span>
             </button>
             <button onClick={() => { setActiveView("series"); setSearchQuery(""); }} className={`p-3 rounded-xl transition-all flex items-center gap-3 ${activeView === "series" ? "bg-blue-600 shadow-lg shadow-blue-600/20" : "text-neutral-400 hover:bg-neutral-800"}`}>
-              <Tv size={20}/> <span className="font-medium">Séries</span>
+              <Tv size={20}/> <span className="font-medium">Séries ({data?.series.length || 0})</span>
             </button>
             <button onClick={() => { setActiveView("live"); setSearchQuery(""); }} className={`p-3 rounded-xl transition-all flex items-center gap-3 ${activeView === "live" ? "bg-blue-600 shadow-lg shadow-blue-600/20" : "text-neutral-400 hover:bg-neutral-800"}`}>
-              <Play size={20}/> <span className="font-medium">Ao Vivo</span>
+              <Play size={20}/> <span className="font-medium">Ao Vivo ({data?.live.reduce((acc, cat) => acc + cat.items.length, 0) || 0})</span>
             </button>
             
             <div className="h-px bg-neutral-800 my-4" />
