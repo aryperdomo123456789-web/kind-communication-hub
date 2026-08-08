@@ -21,11 +21,11 @@ export function CustomCategoriesView({ categories, onDeleteCategory }: CustomCat
   }
 
   return (
-    <div className="space-y-12 animate-in fade-in">
+    <div className="space-y-8 md:space-y-12 animate-in fade-in">
       {categoryEntries.map(([name, items]) => (
-        <div key={name} className="space-y-6">
-          <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
-            <h3 className="text-2xl font-bold flex items-center gap-3">
+        <div key={name} className="space-y-4 md:space-y-6">
+          <div className="flex items-center justify-between border-b border-neutral-800 pb-3 md:pb-4">
+            <h3 className="text-xl md:text-2xl font-bold flex items-center gap-2 md:gap-3">
               <div className="w-2 h-8 bg-blue-600 rounded-full" /> {name}
             </h3>
             <button 
@@ -35,7 +35,7 @@ export function CustomCategoriesView({ categories, onDeleteCategory }: CustomCat
               Excluir Categoria
             </button>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+          <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-3 md:gap-4">
             {items.map(item => (
               <ContentItem 
                 key={item.id} 

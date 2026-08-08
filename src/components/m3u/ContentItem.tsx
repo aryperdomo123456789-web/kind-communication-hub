@@ -39,9 +39,9 @@ export function ContentItem({ item, isSelected, selectionMode, onToggle }: Conte
         </div>
       )}
 
-      <div className="absolute bottom-0 left-0 right-0 p-3">
-        <p className="text-[11px] font-bold leading-tight line-clamp-2 text-white group-hover:text-blue-400 transition-colors">{item.name}</p>
-        {item.type === "series" && <p className="text-[9px] text-neutral-400 mt-1">S{item.season} E{item.episode}</p>}
+      <div className="absolute bottom-0 left-0 right-0 p-2 md:p-3">
+        <p className="text-[9px] md:text-[11px] font-bold leading-tight line-clamp-2 text-white group-hover:text-blue-400 transition-colors">{item.name}</p>
+        {item.type === "series" && <p className="text-[8px] md:text-[9px] text-neutral-400 mt-1 uppercase tracking-tighter">S{item.season} • E{item.episode}</p>}
       </div>
 
       {!selectionMode && (
