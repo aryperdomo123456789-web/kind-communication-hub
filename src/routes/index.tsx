@@ -1,24 +1,52 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { parseM3U, M3UParsed } from "@/lib/m3u";
+import { Play, Folder, Film, Tv, ChevronRight } from "lucide-react";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
+  const [data, setData] = useState<M3UParsed | null>(null);
+  const [m3uText, setM3uText] = useState("");
+  const [activeView, setActiveView] = useState<"movies" | "series" | "live">("movies");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedSeries, setSelectedSeries] = useState<string | null>(null);
+  const [selectedSeason, setSelectedSeason] = useState<string | null>(null);
+
+  const handleProcess = () => {
+    const parsed = parseM3U(m3uText);
+    setData(parsed);
+  };
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
+    <div className="min-h-screen bg-neutral-950 text-white p-6">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-3xl font-bold mb-6 text-blue-500">M3U Separator PRO</h1>
+        <textarea
+          className="w-full h-32 bg-neutral-900 border border-neutral-800 rounded-lg p-4 mb-4 text-sm font-mono"
+          placeholder="Cole seu conteúdo M3U aqui..."
+          value={m3uText}
+          onChange={(e) => setM3uText(e.target.value)}
+        />
+        <button
+          onClick={handleProcess}
+          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg mb-8"
+        >
+          Processar Lista
+        </button>
+
+        {data && (
+          <div className="flex gap-4 mb-8">
+            <button onClick={() => {setActiveView("movies"); setSelectedCategory(null);}} className={`flex items-center gap-2 p-3 rounded-lg ${activeView === "movies" ? "bg-blue-900" : "bg-neutral-800"}`}><Film/> Filmes</button>
+            <button onClick={() => {setActiveView("series"); setSelectedCategory(null);}} className={`flex items-center gap-2 p-3 rounded-lg ${activeView === "series" ? "bg-blue-900" : "bg-neutral-800"}`}><Tv/> Séries</button>
+            <button onClick={() => {setActiveView("live"); setSelectedCategory(null);}} className={`flex items-center gap-2 p-3 rounded-lg ${activeView === "live" ? "bg-blue-900" : "bg-neutral-800"}`}><Play/> Ao Vivo</button>
+          </div>
+        )}
+
+        {/* View render logic here */}
+      </div>
     </div>
   );
 }
