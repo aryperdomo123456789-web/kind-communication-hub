@@ -17,7 +17,16 @@ export function ServerView({ customCategories }: ServerViewProps) {
   const [downloadingCategory, setDownloadingCategory] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   
-  const setupCommand = `wget -qO- https://raw.githubusercontent.com/lovable-dev/ssh-bridge/main/install.sh | bash -s -- --port 8080 --ip ${serverIp} || curl -sSL https://lovable-ssh-bridge.vercel.app/install.sh | bash -s -- --port 8080 --ip ${serverIp}`;
+  const setupCommand = `mkdir -p /opt/lovable && fuser -k 8080/tcp || true && cat << 'EOF' > /opt/lovable/bridge.sh
+#!/bin/bash
+PORT=8080
+echo "Limpando porta $PORT..."
+fuser -k $PORT/tcp 2>/dev/null || true
+echo "Lovable SSH Bridge starting on port $PORT..."
+python3 -m http.server $PORT &
+echo "Bridge is online at http://${serverIp}:$PORT"
+EOF
+chmod +x /opt/lovable/bridge.sh && /opt/lovable/bridge.sh`;
 
   const downloadFn = useServerFn(downloadCategoryToServer);
 
