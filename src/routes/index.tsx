@@ -35,8 +35,12 @@ function Index() {
   
   // Custom Categories
   const [customCategories, setCustomCategories] = useState<Record<string, M3UItem[]>>(() => {
-    const saved = localStorage.getItem("custom_categories");
-    return saved ? JSON.parse(saved) : {};
+    try {
+      const saved = typeof window !== 'undefined' ? localStorage.getItem("custom_categories") : null;
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
   });
   const [newCatName, setNewCatName] = useState("");
   const [selectionMode, setSelectionMode] = useState(false);
@@ -46,14 +50,21 @@ function Index() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleProcess = async (url: string) => {
+    if (!url) return;
     setIsLoading(true);
     setActiveListUrl(url);
     try {
+      console.log("Processando URL:", url);
       const parsed = await parseM3U(url);
-      setData(parsed);
-      setActiveView("movies");
+      if (parsed && (parsed.movies.length > 0 || parsed.series.length > 0 || parsed.live.length > 0)) {
+        setData(parsed);
+        // Só muda a view se estivermos vindo das configurações ou se não houver dados
+        if (activeView === "settings") setActiveView("movies");
+      } else {
+        console.warn("Nenhum dado retornado da M3U");
+      }
     } catch (error) {
-      console.error("Erro ao processar:", error);
+      console.error("Erro ao processar M3U:", error);
     } finally {
       setIsLoading(false);
     }
