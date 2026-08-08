@@ -41,19 +41,16 @@ export function parseM3U(content: string): M3UParsed {
     const line = lines[i].trim();
     
     if (line.startsWith("#EXTINF:")) {
-      // Extract tvg-name
       const nameMatch = line.match(/tvg-name="([^"]*)"/);
-      // Extract tvg-logo
       const logoMatch = line.match(/tvg-logo="([^"]*)"/);
-      // Extract group-title
       const groupMatch = line.match(/group-title="([^"]*)"/);
-      // Extract item name (after the last comma)
       const commaIndex = line.lastIndexOf(",");
       const rawName = commaIndex !== -1 ? line.substring(commaIndex + 1).trim() : (nameMatch?.[1] || "Unknown");
 
+      const nameStr = nameMatch?.[1] || rawName;
       currentItem = {
         id: Math.random().toString(36).substring(7),
-        name: nameMatch?.[1] || rawName,
+        name: nameStr,
         logo: logoMatch?.[1] || "",
         group: groupMatch?.[1] || "Uncategorized",
         rawName: rawName,
@@ -61,14 +58,12 @@ export function parseM3U(content: string): M3UParsed {
     } else if (line.startsWith("http")) {
       currentItem.url = line;
       
-      // LOGICA DE SEPARAÇÃO INTELIGENTE DO MAGO
+      const currentRawName = currentItem.rawName || "";
       if (line.includes("/movie/")) {
         currentItem.type = "movie";
       } else if (line.includes("/series/")) {
         currentItem.type = "series";
-        
-        // Extrair temporada e episódio do nome (ex: S01E01 ou 1x01)
-        const sMatch = currentItem.rawName?.match(/S(\d+)E(\d+)/i) || currentItem.rawName?.match(/(\d+)x(\d+)/i);
+        const sMatch = currentRawName.match(/S(\d+)E(\d+)/i) || currentRawName.match(/(\d+)x(\d+)/i);
         if (sMatch) {
           currentItem.season = sMatch[1].padStart(2, '0');
           currentItem.episode = sMatch[2].padStart(2, '0');
@@ -87,14 +82,8 @@ export function parseM3U(content: string): M3UParsed {
     }
   }
 
-  // Organizar em categorias
-  const result: M3UParsed = {
-    movies: [],
-    series: [],
-    live: [],
-  };
+  const result: M3UParsed = { movies: [], series: [], live: [] };
 
-  // Process Movies
   const movieGroups = new Map<string, M3UItem[]>();
   items.filter(i => i.type === "movie").forEach(item => {
     const group = item.group;
@@ -103,19 +92,18 @@ export function parseM3U(content: string): M3UParsed {
   });
   movieGroups.forEach((items, name) => result.movies.push({ name, items }));
 
-  // Process Live
-  const liveGroups = new Map<string, M3UItem[]>();
+  const liveGroups = new Map<string, M3UCategory>();
   items.filter(i => i.type === "live").forEach(item => {
-    const group = item.group;
-    if (!liveGroups.has(group)) liveGroups.set(group, []);
-    liveGroups.get(group)!.push(item);
+    const groupName = item.group;
+    if (!liveGroups.has(groupName)) {
+      liveGroups.set(groupName, { name: groupName, items: [] });
+    }
+    liveGroups.get(groupName)!.items.push(item);
   });
-  liveGroups.forEach((items, name) => result.live.push({ name, items }));
+  result.live = Array.from(liveGroups.values());
 
-  // Process Series (More complex: Group by Name -> Season -> Episodes)
   const seriesMap = new Map<string, Map<string, M3UItem[]>>();
   items.filter(i => i.type === "series").forEach(item => {
-    // Try to clean name from SxxExx
     const cleanName = item.name.replace(/S\d+E\d+/i, "").replace(/\d+x\d+/i, "").trim();
     if (!seriesMap.has(cleanName)) seriesMap.set(cleanName, new Map());
     
