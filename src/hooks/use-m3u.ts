@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { parseM3U, M3UParsed, M3UItem } from "@/lib/m3u";
+import { parseM3U, M3UParsed, M3UItem, M3UCategory } from "@/lib/m3u";
 
 export type ViewType = "movies" | "series" | "live" | "custom" | "settings";
 
@@ -88,9 +88,9 @@ export function useM3U() {
     if (!name || selectedIds.size === 0 || !data) return;
     
     const allItems = [
-      ...data.movies.flatMap(c => c.items), 
-      ...data.series.flatMap(s => s.seasons.flatMap(s => s.episodes)), 
-      ...data.live.flatMap(c => c.items)
+      ...data.movies.flatMap((c: M3UCategory) => c.items), 
+      ...data.series.flatMap((s: any) => s.seasons.flatMap((ss: any) => ss.episodes)), 
+      ...data.live.flatMap((c: M3UCategory) => c.items)
     ];
     
     const selected = allItems.filter(i => selectedIds.has(i.id));
@@ -125,11 +125,11 @@ export function useM3U() {
     
     let source: M3UItem[] = [];
     if (activeView === "movies") {
-      source = data.movies.flatMap(c => c.items);
+      source = data.movies.flatMap((c: M3UCategory) => c.items);
     } else if (activeView === "live") {
-      source = data.live.flatMap(c => c.items);
+      source = data.live.flatMap((c: M3UCategory) => c.items);
     } else if (activeView === "series") {
-      source = data.series.flatMap(s => s.seasons.flatMap(ss => ss.episodes));
+      source = data.series.flatMap((s: any) => s.seasons.flatMap((ss: any) => ss.episodes));
     }
     
     if (!searchQuery) return source;

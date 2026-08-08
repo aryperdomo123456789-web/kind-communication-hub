@@ -1,5 +1,5 @@
 import { Film, Tv, Play, List, Settings } from "lucide-react";
-import { M3UParsed } from "@/lib/m3u";
+import { M3UParsed, M3UCategory } from "@/lib/m3u";
 import { ViewType } from "@/hooks/use-m3u";
 
 interface SidebarProps {
@@ -16,9 +16,9 @@ export function Sidebar({ activeView, setActiveView, data, setSearchQuery }: Sid
   };
 
   const counts = {
-    movies: data?.movies.reduce((acc, cat) => acc + cat.items.length, 0) || 0,
+    movies: data?.movies.reduce((acc: number, cat: M3UCategory) => acc + cat.items.length, 0) || 0,
     series: data?.series.length || 0,
-    live: data?.live.reduce((acc, cat) => acc + cat.items.length, 0) || 0,
+    live: data?.live.reduce((acc: number, cat: M3UCategory) => acc + cat.items.length, 0) || 0,
   };
 
   return (
