@@ -147,7 +147,11 @@ export function parseM3U(content: string): M3UParsed {
     });
     result.series.push({ 
       name: seriesName, 
-      seasons: seasons.sort((a, b) => parseInt(a.number) - parseInt(b.number)) 
+      seasons: seasons.sort((a, b) => {
+        const numA = parseInt(a.number || "0");
+        const numB = parseInt(b.number || "0");
+        return numA - numB;
+      }) 
     });
   });
 
