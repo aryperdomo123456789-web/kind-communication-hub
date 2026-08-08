@@ -50,9 +50,9 @@ export function parseM3U(content: string): M3UParsed {
       const commaIndex = line.lastIndexOf(",");
       const rawName = commaIndex !== -1 ? line.substring(commaIndex + 1).trim() : (nameMatch?.[1] || "Unknown");
 
-      currentName = nameMatch?.[1] || rawName;
-      currentLogo = logoMatch?.[1] || "";
-      currentGroup = groupMatch?.[1] || "Uncategorized";
+      currentName = (nameMatch && nameMatch[1]) ? nameMatch[1] : rawName;
+      currentLogo = (logoMatch && logoMatch[1]) ? logoMatch[1] : "";
+      currentGroup = (groupMatch && groupMatch[1]) ? groupMatch[1] : "Uncategorized";
       currentRawName = rawName;
     } else if (line.startsWith("http") && currentName !== null) {
       const url = line;
@@ -66,7 +66,7 @@ export function parseM3U(content: string): M3UParsed {
       } else if (url.includes("/series/")) {
         type = "series";
         const sMatch = rawName.match(/S(\d+)E(\d+)/i) || rawName.match(/(\d+)x(\d+)/i);
-        if (sMatch) {
+        if (sMatch && sMatch[1] && sMatch[2]) {
           season = sMatch[1].padStart(2, '0');
           episode = sMatch[2].padStart(2, '0');
         } else {
@@ -100,7 +100,8 @@ export function parseM3U(content: string): M3UParsed {
   items.filter(i => i.type === "movie").forEach(item => {
     const group = item.group;
     if (!movieGroups.has(group)) movieGroups.set(group, []);
-    movieGroups.get(group)?.push(item);
+    const list = movieGroups.get(group);
+    if (list) list.push(item);
   });
   movieGroups.forEach((items, name) => result.movies.push({ name, items }));
 
@@ -110,7 +111,8 @@ export function parseM3U(content: string): M3UParsed {
     if (!liveGroups.has(groupName)) {
       liveGroups.set(groupName, { name: groupName, items: [] });
     }
-    liveGroups.get(groupName)?.items.push(item);
+    const cat = liveGroups.get(groupName);
+    if (cat) cat.items.push(item);
   });
   result.live = Array.from(liveGroups.values());
 
@@ -123,7 +125,8 @@ export function parseM3U(content: string): M3UParsed {
     if (seasons) {
       const seasonNum = item.season || "01";
       if (!seasons.has(seasonNum)) seasons.set(seasonNum, []);
-      seasons.get(seasonNum)?.push(item);
+      const eps = seasons.get(seasonNum);
+      if (eps) eps.push(item);
     }
   });
 
