@@ -45,9 +45,9 @@ export async function parseM3U(content: string): Promise<M3UParsed> {
       currentLogo = (logoMatch && logoMatch[1]) ? logoMatch[1] : "";
       currentGroup = (groupMatch && groupMatch[1]) ? groupMatch[1] : "Uncategorized";
       currentRawName = rName;
-    } else if (line.startsWith("http") && currentName !== null) {
+    } else if (line.startsWith("http") && (currentName !== null || currentRawName !== null)) {
       const url = line.split(" ")[0] || "";
-      const rawName = currentRawName || "";
+      const rawName = currentRawName || currentName || "Unknown";
       const type = detectType(url.toLowerCase(), rawName);
       let season, episode;
 
@@ -56,8 +56,8 @@ export async function parseM3U(content: string): Promise<M3UParsed> {
       }
 
       items.push({
-        id: Math.random().toString(36).substring(7),
-        name: currentName || "Unknown",
+        id: `id-${Math.random().toString(36).substring(2, 11)}-${Date.now()}`,
+        name: currentName || rawName || "Unknown",
         logo: currentLogo || "",
         group: currentGroup || "Uncategorized",
         url,
@@ -69,6 +69,7 @@ export async function parseM3U(content: string): Promise<M3UParsed> {
       
       currentName = null; currentLogo = null; currentGroup = null; currentRawName = null;
     }
+
   }
 
   return groupItems(items);

@@ -95,13 +95,20 @@ export function useM3U() {
   const createCustomCategory = (name: string) => {
     if (!name || selectedIds.size === 0 || !data) return;
     
-    const allItems = [
-      ...data.movies.flatMap((c: M3UCategory) => c.items), 
-      ...data.series.flatMap((s: any) => s.seasons.flatMap((ss: any) => ss.episodes)), 
-      ...data.live.flatMap((c: M3UCategory) => c.items)
-    ];
+    // Obter todos os itens possíveis
+    const allMovies = data.movies.flatMap((c: M3UCategory) => c.items);
+    const allLive = data.live.flatMap((c: M3UCategory) => c.items);
+    const allSeriesEpisodes = data.series.flatMap((s: any) => s.seasons.flatMap((ss: any) => ss.episodes));
+    
+    const allItems = [...allMovies, ...allLive, ...allSeriesEpisodes];
     
     const selected = allItems.filter(i => selectedIds.has(i.id));
+    
+    if (selected.length === 0) {
+      console.warn("Nenhum item correspondente encontrado para os IDs selecionados.");
+      return;
+    }
+
     setCustomCategories(prev => ({
       ...prev, 
       [name]: [...(prev[name] || []), ...selected]
@@ -110,6 +117,7 @@ export function useM3U() {
     setSelectedIds(new Set());
     setSelectionMode(false);
   };
+
 
   const deleteCustomCategory = (name: string) => {
     setCustomCategories(prev => {
