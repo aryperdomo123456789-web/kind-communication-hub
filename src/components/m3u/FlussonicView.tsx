@@ -17,14 +17,14 @@ export function FlussonicView() {
   const [selectedCat, setSelectedCat] = useState("");
   const [videoList, setVideoList] = useState("");
 
-  const createCatFn = useServerFn(createFlussonicCategory);
-  const createChannelFn = useServerFn(createFlussonicChannel);
-  const listCatsFn = useServerFn(listFlussonicCategories);
+  const createCat = useServerFn(createFlussonicCategory);
+  const createChannel = useServerFn(createFlussonicChannel);
+  const listCats = useServerFn(listFlussonicCategories);
 
   const refreshCategories = async () => {
     setIsRefreshing(true);
     try {
-      const res = await listCatsFn();
+      const res = await listCats();
       if (res.success) setServerCategories(res.categories);
     } catch (e) {
       console.error("Erro ao listar categorias");
@@ -41,7 +41,7 @@ export function FlussonicView() {
     if (!catName) return alert("Dê um nome para a categoria!");
     setLoading(true);
     try {
-      const res = await createCatFn({ data: { name: catName } }) as FlussonicResponse;
+      const res = await createCat({ data: { name: catName } }) as FlussonicResponse;
       alert(res.message);
       if (res.success) {
         setCatName("");
@@ -58,7 +58,7 @@ export function FlussonicView() {
     if (!channelName || !videoList) return alert("Preencha o nome do canal e a lista de vídeos!");
     setLoading(true);
     try {
-      const res = await createChannelFn({ 
+      const res = await createChannel({ 
         data: { 
           name: channelName, 
           category: selectedCat,
@@ -76,7 +76,6 @@ export function FlussonicView() {
       setLoading(false);
     }
   };
-
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
@@ -177,7 +176,6 @@ export function FlussonicView() {
                 <p className="text-[10px] text-neutral-500 mt-1 italic">Escolha uma categoria existente ou digite o nome de uma nova.</p>
               </div>
 
-
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Lista de Vídeos (1 por linha)</label>
                 <textarea 
@@ -218,7 +216,6 @@ export function FlussonicView() {
               <h3 className="font-bold text-orange-400 flex items-center gap-2 mt-6">
                 <AlertCircle size={18} /> Lógica de Guerrilha
               </h3>
-
               <ul className="space-y-3 text-sm text-neutral-400">
                 <li className="flex gap-2">
                   <span className="text-orange-500 font-bold">1.</span>
