@@ -42,24 +42,25 @@ export function parseM3U(content: string): M3UParsed {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    
+    if (!line) continue;
+
     if (line.startsWith("#EXTINF:")) {
       const nameMatch = line.match(/tvg-name="([^"]*)"/);
       const logoMatch = line.match(/tvg-logo="([^"]*)"/);
       const groupMatch = line.match(/group-title="([^"]*)"/);
       const commaIndex = line.lastIndexOf(",");
       
-      let rawName = "Unknown";
+      let rName = "Unknown";
       if (commaIndex !== -1) {
-        rawName = line.substring(commaIndex + 1).trim();
+        rName = line.substring(commaIndex + 1).trim();
       } else if (nameMatch && nameMatch[1]) {
-        rawName = nameMatch[1];
+        rName = nameMatch[1];
       }
 
-      currentName = (nameMatch && nameMatch[1]) ? nameMatch[1] : rawName;
+      currentName = (nameMatch && nameMatch[1]) ? nameMatch[1] : rName;
       currentLogo = (logoMatch && logoMatch[1]) ? logoMatch[1] : "";
       currentGroup = (groupMatch && groupMatch[1]) ? groupMatch[1] : "Uncategorized";
-      currentRawName = rawName;
+      currentRawName = rName;
     } else if (line.startsWith("http") && currentName !== null) {
       const url = line;
       const rawName = currentRawName || "";
@@ -79,11 +80,13 @@ export function parseM3U(content: string): M3UParsed {
           season = "01";
           episode = "01";
         }
+      } else if (url.includes("/live/")) {
+        type = "live";
       }
 
       items.push({
         id: Math.random().toString(36).substring(7),
-        name: currentName || "Unknown",
+        name: currentName,
         logo: currentLogo || "",
         group: currentGroup || "Uncategorized",
         url: url,
