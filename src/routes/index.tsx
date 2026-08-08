@@ -8,6 +8,7 @@ import { SettingsView } from "@/components/m3u/SettingsView";
 import { CustomCategoriesView } from "@/components/m3u/CustomCategoriesView";
 import { Search, Menu, X, Server } from "lucide-react";
 import { ServerView } from "@/components/m3u/ServerView";
+import { FlussonicView } from "@/components/m3u/FlussonicView";
 import { useState } from "react";
 
 export const Route = createFileRoute("/")({
@@ -95,6 +96,8 @@ function Index() {
               />
             ) : activeView === "server" ? (
               <ServerView customCategories={customCategories} />
+            ) : activeView === "flussonic" ? (
+              <FlussonicView />
             ) : (
               <div className="space-y-6 animate-in fade-in duration-300">
                   {selectionMode && (
