@@ -16,7 +16,7 @@ function Index() {
     { name: "Principal", url: "http://servicedovod.shop:80//get.php?username=TesteCompanyHOST&password=392380odasw&type=m3u_plus&output=hls" },
     { name: "Secundária", url: "http://ctfautt.cc:80/get.php?username=4nXdgX37oV&password=pLxSa2hRSP&type=m3u_plus&output=hls" }
   ]);
-  const [activeListUrl, setActiveListUrl] = useState(m3uLists[0].url);
+  const [activeListUrl, setActiveListUrl] = useState(m3uLists[0]?.url || "");
   const [newListName, setNewListName] = useState("");
   const [newListUrl, setNewListUrl] = useState("");
   
