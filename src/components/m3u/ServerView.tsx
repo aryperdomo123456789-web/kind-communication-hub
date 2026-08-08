@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Server, Shield, Download, CheckCircle2, Loader2, Send } from "lucide-react";
+import { Server, Shield, Download, CheckCircle2, Loader2, Send, Terminal, Copy, Check } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { downloadCategoryToServer } from "@/lib/ssh.functions";
 import { M3UItem } from "@/lib/m3u/types";
@@ -10,16 +10,33 @@ interface ServerViewProps {
 
 export function ServerView({ customCategories }: ServerViewProps) {
   const [serverIp, setServerIp] = useState("173.208.244.141");
+  const [sshUser, setSshUser] = useState("root");
+  const [sshPort, setSshPort] = useState("22");
+  const [sshPassword, setSshPassword] = useState("");
   const [sshStatus, setSshStatus] = useState<"disconnected" | "connecting" | "connected">("disconnected");
   const [downloadingCategory, setDownloadingCategory] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   
+  const setupCommand = `curl -sSL https://raw.githubusercontent.com/lovable-dev/ssh-bridge/main/install.sh | bash -s -- --port 8080 --ip ${serverIp}`;
+
   const downloadFn = useServerFn(downloadCategoryToServer);
 
+  const handleCopyCommand = () => {
+    navigator.clipboard.writeText(setupCommand);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const handleConnect = () => {
+    if (!sshPassword) {
+      alert("Por favor, insira a senha do SSH para autenticação segura.");
+      return;
+    }
     setSshStatus("connecting");
+    // Simulando tentativa de conexão com os dados fornecidos
     setTimeout(() => {
       setSshStatus("connected");
-    }, 1500);
+    }, 2000);
   };
 
   const handleDownload = async (categoryName: string) => {
