@@ -1,6 +1,7 @@
-import { Search, Plus, Play } from "lucide-react";
+import { Search, Plus, Play, Menu } from "lucide-react";
 import { ViewType } from "@/hooks/use-m3u";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface HeaderProps {
   activeView: ViewType;
@@ -12,6 +13,7 @@ interface HeaderProps {
   selectedCount: number;
   onCreateCategory: (name: string) => void;
   onCancelSelection: () => void;
+  onToggleSidebar?: () => void;
 }
 
 export function Header({
@@ -23,7 +25,8 @@ export function Header({
   setSelectionMode,
   selectedCount,
   onCreateCategory,
-  onCancelSelection
+  onCancelSelection,
+  onToggleSidebar
 }: HeaderProps) {
   const [newCatName, setNewCatName] = useState("");
 
@@ -41,14 +44,20 @@ export function Header({
   };
 
   return (
-    <header className="h-20 flex items-center px-8 border-b border-neutral-800 justify-between bg-[#141414]/50 backdrop-blur-xl sticky top-0 z-10">
-      <div className="flex items-center gap-6 flex-1">
-        <h2 className="text-xl font-bold capitalize min-w-[150px]">
+    <header className="h-16 md:h-20 flex items-center px-4 md:px-8 border-b border-neutral-800 justify-between bg-[#141414]/50 backdrop-blur-xl sticky top-0 z-10 gap-2 md:gap-4">
+      <div className="flex items-center gap-2 md:gap-6 flex-1 min-w-0">
+        <button 
+          onClick={onToggleSidebar}
+          className="lg:hidden p-2 hover:bg-neutral-800 rounded-lg text-neutral-400"
+        >
+          <Menu size={20} />
+        </button>
+        <h2 className="text-lg md:text-xl font-bold capitalize whitespace-nowrap overflow-hidden text-ellipsis">
           {titleMap[activeView]}
         </h2>
         
         {activeView !== "settings" && activeView !== "custom" && (
-          <div className="relative max-w-md w-full">
+          <div className="relative flex-1 max-w-[200px] md:max-w-md hidden sm:block">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={18}/>
             <input 
               type="text" 
