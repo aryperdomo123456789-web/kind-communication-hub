@@ -121,7 +121,7 @@ export function useM3U() {
     setM3uLists(prev => {
       const next = prev.filter(l => l.url !== url);
       if (activeListUrl === url) {
-        if (next.length > 0) {
+        if (next.length > 0 && next[0]) {
           setActiveListUrl(next[0].url);
         } else {
           setActiveListUrl("");
