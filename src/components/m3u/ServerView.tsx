@@ -63,37 +63,111 @@ export function ServerView({ customCategories }: ServerViewProps) {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
       <div className="bg-[#141414] border border-white/5 rounded-2xl p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-xl bg-blue-600/20 flex items-center justify-center text-blue-500">
-            <Server size={24} />
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-blue-600/20 flex items-center justify-center text-blue-500">
+              <Server size={24} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold">Configuração do Servidor</h2>
+              <p className="text-sm text-neutral-400">Prepare seu servidor para receber os conteúdos</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-bold">Conexão SSH</h2>
-            <p className="text-sm text-neutral-400">Gerencie a integração com seu servidor remoto</p>
+          {sshStatus === "connected" && (
+            <div className="flex items-center gap-2 px-3 py-1 bg-green-500/10 text-green-500 border border-green-500/20 rounded-full text-xs font-bold uppercase tracking-wider">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              Conectado
+            </div>
+          )}
+        </div>
+
+        <div className="bg-blue-600/10 border border-blue-600/20 rounded-xl p-5 mb-8">
+          <div className="flex items-start gap-4">
+            <div className="p-2 bg-blue-600 rounded-lg text-white mt-1 shrink-0">
+              <Terminal size={20} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold text-blue-400 mb-1">Passo 1: Prepare o Servidor</h3>
+              <p className="text-sm text-neutral-300 mb-4">
+                Execute o comando abaixo no terminal do seu servidor via SSH para instalar o agente de ponte e liberar o acesso:
+              </p>
+              <div className="relative group">
+                <div className="bg-black/60 rounded-lg p-4 font-mono text-[10px] sm:text-xs text-blue-300 break-all pr-12 border border-white/5 overflow-x-auto">
+                  {setupCommand}
+                </div>
+                <button 
+                  onClick={handleCopyCommand}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 hover:bg-white/10 rounded-md transition-colors text-neutral-400 hover:text-white"
+                  title="Copiar comando"
+                >
+                  {copied ? <Check size={18} className="text-green-500" /> : <Copy size={18} />}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Endereço IP do Servidor</label>
-              <input 
-                type="text" 
-                value={serverIp}
-                onChange={(e) => setServerIp(e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
-                placeholder="Ex: 173.208.244.141"
-              />
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-4">
+            <h3 className="font-bold text-neutral-400 text-xs uppercase tracking-widest flex items-center gap-2 mb-4">
+              <Shield size={14} /> Passo 2: Autenticação de Acesso
+            </h3>
+            
+            <div className="grid sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Usuário</label>
+                <input 
+                  type="text" 
+                  value={sshUser}
+                  onChange={(e) => setSshUser(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500 transition-colors text-sm"
+                  placeholder="root"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Host / IP</label>
+                <input 
+                  type="text" 
+                  value={serverIp}
+                  onChange={(e) => setServerIp(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500 transition-colors text-sm"
+                  placeholder="173.208.244.141"
+                />
+              </div>
             </div>
+
+            <div className="grid sm:grid-cols-4 gap-4">
+              <div className="sm:col-span-3">
+                <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Senha SSH</label>
+                <input 
+                  type="password" 
+                  value={sshPassword}
+                  onChange={(e) => setSshPassword(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500 transition-colors text-sm"
+                  placeholder="••••••••"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">Porta</label>
+                <input 
+                  type="text" 
+                  value={sshPort}
+                  onChange={(e) => setSshPort(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500 transition-colors text-sm"
+                  placeholder="22"
+                />
+              </div>
+            </div>
+
             <button 
               onClick={handleConnect}
-              disabled={sshStatus === "connecting"}
-              className={`w-full py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${
+              disabled={sshStatus === "connecting" || sshStatus === "connected"}
+              className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all mt-2 ${
                 sshStatus === "connected" 
-                  ? "bg-green-600/20 text-green-500 border border-green-600/30" 
-                  : "bg-blue-600 hover:bg-blue-700 text-white"
+                  ? "bg-green-600/20 text-green-500 border border-green-600/30 cursor-default" 
+                  : "bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20"
               }`}
             >
               {sshStatus === "connecting" ? (
@@ -101,29 +175,32 @@ export function ServerView({ customCategories }: ServerViewProps) {
               ) : sshStatus === "connected" ? (
                 <>
                   <CheckCircle2 size={20} />
-                  Conectado via SSH
+                  Acesso Autorizado via SSH Bridge
                 </>
               ) : (
                 <>
                   <Shield size={20} />
-                  Conectar via SSH
+                  Validar Acesso e Conectar
                 </>
               )}
             </button>
           </div>
 
-          <div className="bg-black/20 rounded-xl p-4 border border-white/5 flex flex-col justify-center">
-            <div className="flex items-center gap-2 mb-2 text-sm font-medium">
-              <div className={`w-2 h-2 rounded-full ${sshStatus === "connected" ? "bg-green-500 animate-pulse" : "bg-red-500"}`} />
-              Status: <span className={sshStatus === "connected" ? "text-green-500" : "text-red-500"}>
-                {sshStatus === "connected" ? "Online" : sshStatus === "connecting" ? "Autenticando..." : "Offline"}
-              </span>
+          <div className="bg-black/20 rounded-2xl p-6 border border-white/5 flex flex-col items-center justify-center text-center space-y-4">
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center ${sshStatus === "connected" ? "bg-green-500/10 text-green-500" : "bg-neutral-800 text-neutral-500"}`}>
+              <Shield size={32} />
             </div>
-            <p className="text-xs text-neutral-500">
-              {sshStatus === "connected" 
-                ? "Conexão segura estabelecida. Você já pode baixar suas categorias para o servidor." 
-                : "Insira o IP e clique em conectar para habilitar o download de categorias customizadas."}
-            </p>
+            <div>
+              <p className="font-bold text-sm mb-1">Segurança de Guerrilha</p>
+              <p className="text-xs text-neutral-500 leading-relaxed">
+                Suas credenciais são usadas apenas para estabelecer a ponte criptografada. O agente instalado no Passo 1 garante que o sistema consiga baixar os vídeos diretamente no seu servidor.
+              </p>
+            </div>
+            {sshStatus !== "connected" && (
+              <div className="text-[10px] text-neutral-600 bg-neutral-900 px-3 py-1 rounded-full uppercase tracking-widest font-bold">
+                Aguardando Validação
+              </div>
+            )}
           </div>
         </div>
       </div>
