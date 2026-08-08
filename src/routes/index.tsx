@@ -19,8 +19,15 @@ function Index() {
   const [selectedSeason, setSelectedSeason] = useState<string | null>(null);
 
   const handleProcess = async () => {
-    const parsed = await parseM3U(m3uText);
-    setData(parsed);
+    setIsLoading(true);
+    try {
+      const parsed = await parseM3U(m3uText);
+      setData(parsed);
+    } catch (error) {
+      console.error("Erro ao processar:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const resetNav = () => {
