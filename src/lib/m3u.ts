@@ -100,7 +100,8 @@ export function parseM3U(content: string): M3UParsed {
   items.filter(i => i.type === "movie").forEach(item => {
     const group = item.group;
     if (!movieGroups.has(group)) movieGroups.set(group, []);
-    movieGroups.get(group)!.push(item);
+    const list = movieGroups.get(group);
+    if (list) list.push(item);
   });
   movieGroups.forEach((items, name) => result.movies.push({ name, items }));
 
@@ -110,7 +111,8 @@ export function parseM3U(content: string): M3UParsed {
     if (!liveGroups.has(groupName)) {
       liveGroups.set(groupName, { name: groupName, items: [] });
     }
-    liveGroups.get(groupName)!.items.push(item);
+    const cat = liveGroups.get(groupName);
+    if (cat) cat.items.push(item);
   });
   result.live = Array.from(liveGroups.values());
 
@@ -119,10 +121,13 @@ export function parseM3U(content: string): M3UParsed {
     const cleanName = item.name.replace(/S\d+E\d+/i, "").replace(/\d+x\d+/i, "").trim();
     if (!seriesMap.has(cleanName)) seriesMap.set(cleanName, new Map());
     
-    const seasons = seriesMap.get(cleanName)!;
-    const seasonNum = item.season || "01";
-    if (!seasons.has(seasonNum)) seasons.set(seasonNum, []);
-    seasons.get(seasonNum)!.push(item);
+    const seasons = seriesMap.get(cleanName);
+    if (seasons) {
+      const seasonNum = item.season || "01";
+      if (!seasons.has(seasonNum)) seasons.set(seasonNum, []);
+      const eps = seasons.get(seasonNum);
+      if (eps) eps.push(item);
+    }
   });
 
   seriesMap.forEach((seasonsMap, seriesName) => {
