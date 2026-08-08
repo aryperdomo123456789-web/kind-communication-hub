@@ -48,7 +48,13 @@ export function parseM3U(content: string): M3UParsed {
       const logoMatch = line.match(/tvg-logo="([^"]*)"/);
       const groupMatch = line.match(/group-title="([^"]*)"/);
       const commaIndex = line.lastIndexOf(",");
-      const rawName = commaIndex !== -1 ? line.substring(commaIndex + 1).trim() : (nameMatch?.[1] || "Unknown");
+      
+      let rawName = "Unknown";
+      if (commaIndex !== -1) {
+        rawName = line.substring(commaIndex + 1).trim();
+      } else if (nameMatch && nameMatch[1]) {
+        rawName = nameMatch[1];
+      }
 
       currentName = (nameMatch && nameMatch[1]) ? nameMatch[1] : rawName;
       currentLogo = (logoMatch && logoMatch[1]) ? logoMatch[1] : "";
