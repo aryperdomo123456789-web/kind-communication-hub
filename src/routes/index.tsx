@@ -54,12 +54,19 @@ function Index() {
         />
         <button
           onClick={handleProcess}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg mb-8"
+          disabled={isLoading}
+          className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-900 text-white font-bold py-2 px-6 rounded-lg mb-8"
         >
-          Processar Lista
+          {isLoading ? "Processando..." : "Processar Lista"}
         </button>
 
-        {data && (
+        {isLoading && (
+          <div className="flex justify-center p-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+          </div>
+        )}
+
+        {data && !isLoading && (
           <div className="flex gap-4 mb-8">
             <button onClick={() => {setActiveView("movies"); resetNav();}} className={`flex items-center gap-2 p-3 rounded-lg ${activeView === "movies" ? "bg-blue-900" : "bg-neutral-800"}`}><Film/> Filmes</button>
             <button onClick={() => {setActiveView("series"); resetNav();}} className={`flex items-center gap-2 p-3 rounded-lg ${activeView === "series" ? "bg-blue-900" : "bg-neutral-800"}`}><Tv/> Séries</button>
