@@ -77,7 +77,7 @@ export function parseM3U(content: string): M3UParsed {
 
       items.push({
         id: Math.random().toString(36).substring(7),
-        name: currentName,
+        name: currentName || "Unknown",
         logo: currentLogo || "",
         group: currentGroup || "Uncategorized",
         url: url,
@@ -100,8 +100,7 @@ export function parseM3U(content: string): M3UParsed {
   items.filter(i => i.type === "movie").forEach(item => {
     const group = item.group;
     if (!movieGroups.has(group)) movieGroups.set(group, []);
-    const list = movieGroups.get(group);
-    if (list) list.push(item);
+    movieGroups.get(group)?.push(item);
   });
   movieGroups.forEach((items, name) => result.movies.push({ name, items }));
 
@@ -111,8 +110,7 @@ export function parseM3U(content: string): M3UParsed {
     if (!liveGroups.has(groupName)) {
       liveGroups.set(groupName, { name: groupName, items: [] });
     }
-    const cat = liveGroups.get(groupName);
-    if (cat) cat.items.push(item);
+    liveGroups.get(groupName)?.items.push(item);
   });
   result.live = Array.from(liveGroups.values());
 
@@ -125,8 +123,7 @@ export function parseM3U(content: string): M3UParsed {
     if (seasons) {
       const seasonNum = item.season || "01";
       if (!seasons.has(seasonNum)) seasons.set(seasonNum, []);
-      const eps = seasons.get(seasonNum);
-      if (eps) eps.push(item);
+      seasons.get(seasonNum)?.push(item);
     }
   });
 
