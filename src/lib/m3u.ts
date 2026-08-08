@@ -31,6 +31,22 @@ export interface M3UParsed {
   live: M3UCategory[];
 }
 
+/**
+ * LÓGICA DE SEPARAÇÃO M3U (MAGO DEV STYLE)
+ * 
+ * 1. Identificação de Conteúdo:
+ *    - FILMES: Identificados pela presença de '/movie/' no link de reprodução.
+ *    - SÉRIES: Identificados pela presença de '/series/' no link de reprodução.
+ *    - AO VIVO: Conteúdo que não se encaixa nos anteriores ou contém '/live/'.
+ * 
+ * 2. Extração de Temporadas e Episódios:
+ *    - O sistema vasculha o nome bruto buscando padrões 'SxxExx' ou 'xXxx' (ex: S01E01 ou 1x01).
+ *    - Caso não encontre, define como S01E01 por padrão.
+ * 
+ * 3. Organização:
+ *    - Filmes e Canais são agrupados pelo 'group-title' da lista original.
+ *    - Séries são agrupadas pelo nome limpo (sem tags de temporada/ep) e depois organizadas em sub-objetos de temporadas e episódios.
+ */
 export function parseM3U(content: string): M3UParsed {
   const lines = content.split("\n");
   const items: M3UItem[] = [];
@@ -107,6 +123,7 @@ export function parseM3U(content: string): M3UParsed {
 
   const result: M3UParsed = { movies: [], series: [], live: [] };
 
+  // Agrupamento de Filmes
   const movieGroups = new Map<string, M3UItem[]>();
   items.filter(i => i.type === "movie").forEach(item => {
     const group = item.group;
@@ -116,6 +133,7 @@ export function parseM3U(content: string): M3UParsed {
   });
   movieGroups.forEach((items, name) => result.movies.push({ name, items }));
 
+  // Agrupamento de Canais
   const liveGroups = new Map<string, M3UCategory>();
   items.filter(i => i.type === "live").forEach(item => {
     const groupName = item.group;
@@ -127,8 +145,10 @@ export function parseM3U(content: string): M3UParsed {
   });
   result.live = Array.from(liveGroups.values());
 
+  // Estruturação de Séries (Série -> Temporada -> Episódio)
   const seriesMap = new Map<string, Map<string, M3UItem[]>>();
   items.filter(i => i.type === "series").forEach(item => {
+    // Limpeza de nome para agrupar episódios da mesma série
     const cleanName = item.name.replace(/S\d+E\d+/i, "").replace(/\d+x\d+/i, "").trim();
     if (!seriesMap.has(cleanName)) seriesMap.set(cleanName, new Map());
     
