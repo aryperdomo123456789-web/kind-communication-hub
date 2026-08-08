@@ -37,6 +37,10 @@ function Index() {
     setSelectedSeason(null);
   };
 
+  useEffect(() => {
+    handleProcess();
+  }, []);
+
   return (
     <div className="min-h-screen bg-neutral-950 text-white p-6 pb-20">
       <div className="max-w-5xl mx-auto">
