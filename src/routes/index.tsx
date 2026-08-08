@@ -139,6 +139,34 @@ function Index() {
                     )}
                   </div>
                 )}
+
+                {/* Bloco de Documentação Local */}
+                <div className="bg-[#141414] border border-white/5 rounded-2xl p-6 mt-12 mb-8">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-12 h-12 rounded-xl bg-green-600/20 flex items-center justify-center text-green-500">
+                      <Server size={24} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold">Documentação do Sistema</h2>
+                      <p className="text-sm text-neutral-400">Guias salvos localmente em .docs/</p>
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    {[
+                      { title: "Canal 24h Flussonic", file: "canal-24h-flussonic.md" },
+                      { title: "Canal por Categoria", file: "canal-por-categoria-flussonic.md" },
+                      { title: "Exemplos Práticos", file: "canal-por-categoria-flussonic-exemplos.md" }
+                    ].map((doc) => (
+                      <div key={doc.file} className="p-4 bg-black/40 border border-white/10 rounded-xl hover:border-blue-500/50 transition-all cursor-default">
+                        <p className="font-bold text-sm mb-1">{doc.title}</p>
+                        <p className="text-[10px] text-neutral-500 font-mono">.docs/{doc.file}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-neutral-600 mt-4 italic">
+                    * Documentos salvos no servidor local e prontos para commit no GitHub.
+                  </p>
+                </div>
               </div>
             )}
           </main>
