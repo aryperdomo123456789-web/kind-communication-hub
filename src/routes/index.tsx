@@ -117,9 +117,23 @@ function Index() {
                 </div>
                 
                 {getFilteredItems().length === 0 && !isLoading && (
-                  <div className="h-[50vh] flex flex-col items-center justify-center text-neutral-600">
+                  <div className="h-[50vh] flex flex-col items-center justify-center text-neutral-600 text-center px-4">
                     <Search size={48} className="mb-4 opacity-20"/>
-                    <p>Nenhum resultado encontrado para "{searchQuery}"</p>
+                    <p className="text-lg font-medium">
+                      {!activeListUrl 
+                        ? "Nenhuma lista M3U ativa" 
+                        : searchQuery 
+                          ? `Nenhum resultado para "${searchQuery}"` 
+                          : "Esta lista não contém itens para esta categoria"}
+                    </p>
+                    {!activeListUrl && (
+                      <button 
+                        onClick={() => setActiveView("settings")}
+                        className="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-all"
+                      >
+                        Configurar Listas
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

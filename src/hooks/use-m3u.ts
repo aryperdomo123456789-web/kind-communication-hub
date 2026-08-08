@@ -30,7 +30,14 @@ export function useM3U() {
     }
   });
 
-  const [activeListUrl, setActiveListUrl] = useState(m3uLists[0]?.url || "");
+  const [activeListUrl, setActiveListUrl] = useState(() => {
+    if (typeof window === 'undefined') return "";
+    return localStorage.getItem("active_m3u_url") || (m3uLists[0]?.url || "");
+  });
+
+  useEffect(() => {
+    localStorage.setItem("active_m3u_url", activeListUrl);
+  }, [activeListUrl]);
 
   // Custom Categories Persistence
   const [customCategories, setCustomCategories] = useState<Record<string, M3UItem[]>>(() => {
@@ -118,7 +125,18 @@ export function useM3U() {
   };
 
   const removeM3UList = (url: string) => {
-    setM3uLists(prev => prev.filter(l => l.url !== url));
+    setM3uLists(prev => {
+      const next = prev.filter(l => l.url !== url);
+      if (activeListUrl === url) {
+        if (next.length > 0 && next[0]) {
+          setActiveListUrl(next[0].url);
+        } else {
+          setActiveListUrl("");
+          setData(null);
+        }
+      }
+      return next;
+    });
   };
 
   const getFilteredItems = useCallback(() => {
