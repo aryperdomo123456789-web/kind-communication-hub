@@ -9,7 +9,7 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const [data, setData] = useState<M3UParsed | null>(null);
-  const [m3uText, setM3uText] = useState("");
+  const [m3uText, setM3uText] = useState("http://servicedovod.shop:80//get.php?username=TesteCompanyHOST&password=392380odasw&type=m3u_plus&output=hls");
   const [activeView, setActiveView] = useState<"movies" | "series" | "live">("movies");
   
   // Navigation State
@@ -17,8 +17,8 @@ function Index() {
   const [selectedSeries, setSelectedSeries] = useState<string | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<string | null>(null);
 
-  const handleProcess = () => {
-    const parsed = parseM3U(m3uText);
+  const handleProcess = async () => {
+    const parsed = await parseM3U(m3uText);
     setData(parsed);
   };
 
@@ -29,7 +29,7 @@ function Index() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white p-6">
+    <div className="min-h-screen bg-neutral-950 text-white p-6 pb-20">
       <div className="max-w-5xl mx-auto">
         <h1 className="text-3xl font-bold mb-6 text-blue-500">M3U Separator PRO</h1>
         
@@ -71,7 +71,10 @@ function Index() {
               <button onClick={() => setSelectedCat(null)} className="mb-4 text-blue-400 flex items-center gap-2"><ChevronLeft /> Voltar</button>
               <div className="space-y-2">
                 {(activeView === "movies" ? data?.movies : data?.live)?.find(c => c.name === selectedCat)?.items.map((it, i) => (
-                  <div key={i} className="p-3 bg-neutral-800 rounded border border-neutral-700">{it.name}</div>
+                  <div key={i} className="p-3 bg-neutral-800 rounded border border-neutral-700 flex items-center justify-between">
+                    <span>{it.name}</span>
+                    <a href={it.url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300"><Play size={18} /></a>
+                  </div>
                 ))}
               </div>
             </div>
@@ -102,7 +105,10 @@ function Index() {
               <button onClick={() => setSelectedSeason(null)} className="mb-4 text-blue-400 flex items-center gap-2"><ChevronLeft /> Voltar</button>
               <div className="space-y-2">
                 {data?.series.find(s => s.name === selectedSeries)?.seasons.find(sea => sea.number === selectedSeason)?.episodes.map((ep, i) => (
-                  <div key={i} className="p-3 bg-neutral-800 rounded border border-neutral-700">Ep {ep.episode} - {ep.name}</div>
+                  <div key={i} className="p-3 bg-neutral-800 rounded border border-neutral-700 flex items-center justify-between">
+                    <span>Ep {ep.episode} - {ep.name}</span>
+                    <a href={ep.url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300"><Play size={18} /></a>
+                  </div>
                 ))}
               </div>
             </div>

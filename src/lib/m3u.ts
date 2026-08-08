@@ -47,8 +47,25 @@ export interface M3UParsed {
  *    - Filmes e Canais são agrupados pelo 'group-title' da lista original.
  *    - Séries são agrupadas pelo nome limpo (sem tags de temporada/ep) e depois organizadas em sub-objetos de temporadas e episódios.
  */
-export function parseM3U(content: string): M3UParsed {
-  const lines = content.split("\n");
+export async function parseM3U(content: string): Promise<M3UParsed> {
+  let finalContent = content;
+
+  // Se o conteúdo parecer uma URL, tentamos buscar a lista
+  if (content.trim().startsWith("http")) {
+    try {
+      // Usando o servidor do Lovable (node_compat) para buscar se for SSR ou via API, 
+      // mas como este código roda no cliente, vamos usar axios/fetch.
+      // Se der erro de CORS, o ideal seria um server function.
+      const response = await fetch(content.trim());
+      if (response.ok) {
+        finalContent = await response.text();
+      }
+    } catch (e) {
+      console.error("Falha ao buscar M3U via URL, tentando processar como texto plano:", e);
+    }
+  }
+
+  const lines = finalContent.split("\n");
   const items: M3UItem[] = [];
   
   let currentName: string | null = null;
@@ -80,7 +97,7 @@ export function parseM3U(content: string): M3UParsed {
       currentGroup = (groupMatch && groupMatch[1]) ? groupMatch[1] : "Uncategorized";
       currentRawName = rName;
     } else if (line.startsWith("http") && currentName !== null) {
-      const url = line;
+      const url = line.split(" ")[0] || ""; // Garante apenas a URL caso venha com metadata
       const rawName = currentRawName || "";
       let type: "movie" | "series" | "live" = "live";
       let season: string | undefined;
