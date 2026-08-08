@@ -158,13 +158,13 @@ function Index() {
                     {[
                       { title: "Capacidade Total", file: "DOCUMENTACAO_COMPLETA.md" },
                       { title: "Deploy no aaPanel", file: "GUIA_AAPANEL_DEPLOY.md", details: "38.190.176.171:/www/wwwroot/flutes.vr766.com" },
-                      { title: "GitHub Backup", file: "Backup Repositório", details: "github.com/aryperdomo123456789-web/kind-communication-hub/tree/aapanel-backup" },
+                      { title: "GitHub Backup", file: "Backup Repositório", details: "github.com/aryperdomo123456789-web/kind-communication-hub/tree/aapanel-backup para ca para o ambiente lovable para voce auditar" },
                       { title: "Canal 24h Flussonic", file: "canal-24h-flussonic.md" },
                       { title: "Exemplos Práticos", file: "canal-por-categoria-flussonic-exemplos.md" }
                     ].map((doc) => (
                       <div key={doc.file} className="p-4 bg-black/40 border border-white/10 rounded-xl hover:border-blue-500/50 transition-all cursor-default">
                         <p className="font-bold text-sm mb-1">{doc.title}</p>
-                        <p className="text-[10px] text-neutral-500 font-mono">
+                        <p className="text-[10px] text-neutral-500 font-mono break-all">
                           {doc.details || `.docs/${doc.file}`}
                         </p>
                       </div>
