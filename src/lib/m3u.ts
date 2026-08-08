@@ -98,24 +98,46 @@ export async function parseM3U(content: string): Promise<M3UParsed> {
     } else if (line.startsWith("http") && currentName !== null) {
       const url = line.split(" ")[0] || ""; // Garante apenas a URL caso venha com metadata
       const rawName = currentRawName || "";
+      const urlLower = url.toLowerCase();
       let type: "movie" | "series" | "live" = "live";
       let season: string | undefined;
       let episode: string | undefined;
 
-      if (url.includes("/movie/")) {
+      // Lógica de separação robusta: prioridade para links /movie/ e /series/
+      if (urlLower.includes("/movie/")) {
         type = "movie";
-      } else if (url.includes("/series/")) {
+      } else if (urlLower.includes("/series/")) {
         type = "series";
-        const sMatch = rawName.match(/S(\d+)E(\d+)/i) || rawName.match(/(\d+)x(\d+)/i);
+        // Padrões comuns: S01E01, 1x01, Season 1 Episode 1
+        const sMatch = rawName.match(/S(\d+)E(\d+)/i) || 
+                       rawName.match(/(\d+)x(\d+)/i) ||
+                       rawName.match(/Season\s*(\d+).*Episode\s*(\d+)/i);
+                       
         if (sMatch && sMatch[1] && sMatch[2]) {
           season = sMatch[1].padStart(2, '0');
           episode = sMatch[2].padStart(2, '0');
         } else {
-          season = "01";
-          episode = "01";
+          // Fallback inteligente: tenta pegar números no final do nome se for série
+          const fallbackMatch = rawName.match(/(\d+)/g);
+          if (fallbackMatch && fallbackMatch.length >= 2) {
+             const sVal = fallbackMatch[fallbackMatch.length - 2];
+             const eVal = fallbackMatch[fallbackMatch.length - 1];
+             season = sVal ? sVal.padStart(2, '0') : "01";
+             episode = eVal ? eVal.padStart(2, '0') : "01";
+          } else {
+            season = "01";
+            episode = "01";
+          }
         }
-      } else if (url.includes("/live/")) {
+      } else if (urlLower.includes("/live/") || urlLower.endsWith(".ts") || urlLower.endsWith(".m3u8")) {
         type = "live";
+      } else {
+        // Fallback para VODs que não seguem o padrão /movie/ ou /series/
+        if (rawName.includes("S0") || rawName.includes("E0") || /\d+x\d+/.test(rawName)) {
+          type = "series";
+        } else if (urlLower.includes("vod") || urlLower.endsWith(".mp4") || urlLower.endsWith(".mkv")) {
+          type = "movie";
+        }
       }
 
       items.push({
