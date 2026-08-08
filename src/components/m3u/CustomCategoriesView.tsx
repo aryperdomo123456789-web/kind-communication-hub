@@ -12,8 +12,9 @@ interface CustomCategoriesViewProps {
 
 export function CustomCategoriesView({ categories, onDeleteCategory }: CustomCategoriesViewProps) {
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
-  const createCatFn = useServerFn(createFlussonicCategory);
-  const createChannelFn = useServerFn(createFlussonicChannel);
+  const createCat = useServerFn(createFlussonicCategory);
+  const createChannel = useServerFn(createFlussonicChannel);
+
 
 
   const categoryEntries = Object.entries(categories);
@@ -22,15 +23,15 @@ export function CustomCategoriesView({ categories, onDeleteCategory }: CustomCat
     setLoadingStates(prev => ({ ...prev, [name]: true }));
     try {
       // 1. Criar categoria no Flussonic
-      const catRes = await createCatFn({ data: { name } });
+      const catRes = await createCat({ data: { name } });
       
       // 2. Criar cada canal (item) dentro dessa categoria
-      // No contexto do Flussonic, cada filme/série selecionado vira um "canal" ou item de playlist
       for (const item of items) {
         const channelName = item.name.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-');
-        await createChannelFn({
+        await createChannel({
           data: {
             name: channelName,
+
             category: name,
             videos: [item.url] // Aqui passamos a URL da m3u. 
             // Nota: A doc diz que baixar é melhor, mas o fluxo solicitado é preparar para o Flussonic.
