@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { parseM3U, M3UParsed, M3UItem } from "@/lib/m3u";
+import { useEffect } from "react";
 import { Play, Film, Tv, ChevronLeft, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -8,6 +9,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  const [isLoading, setIsLoading] = useState(false);
   const [data, setData] = useState<M3UParsed | null>(null);
   const [m3uText, setM3uText] = useState("http://servicedovod.shop:80//get.php?username=TesteCompanyHOST&password=392380odasw&type=m3u_plus&output=hls");
   const [activeView, setActiveView] = useState<"movies" | "series" | "live">("movies");
@@ -18,8 +20,15 @@ function Index() {
   const [selectedSeason, setSelectedSeason] = useState<string | null>(null);
 
   const handleProcess = async () => {
-    const parsed = await parseM3U(m3uText);
-    setData(parsed);
+    setIsLoading(true);
+    try {
+      const parsed = await parseM3U(m3uText);
+      setData(parsed);
+    } catch (error) {
+      console.error("Erro ao processar:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const resetNav = () => {
@@ -27,6 +36,10 @@ function Index() {
     setSelectedSeries(null);
     setSelectedSeason(null);
   };
+
+  useEffect(() => {
+    handleProcess();
+  }, []);
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white p-6 pb-20">
@@ -41,12 +54,19 @@ function Index() {
         />
         <button
           onClick={handleProcess}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg mb-8"
+          disabled={isLoading}
+          className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-900 text-white font-bold py-2 px-6 rounded-lg mb-8"
         >
-          Processar Lista
+          {isLoading ? "Processando..." : "Processar Lista"}
         </button>
 
-        {data && (
+        {isLoading && (
+          <div className="flex justify-center p-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+          </div>
+        )}
+
+        {data && !isLoading && (
           <div className="flex gap-4 mb-8">
             <button onClick={() => {setActiveView("movies"); resetNav();}} className={`flex items-center gap-2 p-3 rounded-lg ${activeView === "movies" ? "bg-blue-900" : "bg-neutral-800"}`}><Film/> Filmes</button>
             <button onClick={() => {setActiveView("series"); resetNav();}} className={`flex items-center gap-2 p-3 rounded-lg ${activeView === "series" ? "bg-blue-900" : "bg-neutral-800"}`}><Tv/> Séries</button>
