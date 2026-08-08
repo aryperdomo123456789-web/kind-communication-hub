@@ -97,7 +97,7 @@ export async function parseM3U(content: string): Promise<M3UParsed> {
       currentGroup = (groupMatch && groupMatch[1]) ? groupMatch[1] : "Uncategorized";
       currentRawName = rName;
     } else if (line.startsWith("http") && currentName !== null) {
-      const url = line.split(" ")[0]; // Garante apenas a URL caso venha com metadata
+      const url = line.split(" ")[0] || ""; // Garante apenas a URL caso venha com metadata
       const rawName = currentRawName || "";
       let type: "movie" | "series" | "live" = "live";
       let season: string | undefined;
