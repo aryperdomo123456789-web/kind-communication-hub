@@ -70,8 +70,8 @@ export function Header({
         )}
       </div>
 
-      <div className="flex items-center gap-3">
-        {isLoading && <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent mr-2"></div>}
+      <div className="flex items-center gap-2 md:gap-3 shrink-0">
+        {isLoading && <div className="animate-spin rounded-full h-4 w-4 md:h-5 md:w-5 border-2 border-blue-500 border-t-transparent mr-1 md:mr-2"></div>}
         
         {activeView !== "settings" && activeView !== "custom" && (
           <>
@@ -80,21 +80,21 @@ export function Header({
                 <input 
                   value={newCatName} 
                   onChange={e => setNewCatName(e.target.value)} 
-                  placeholder="Nome da categoria..." 
-                  className="bg-[#0a0a0a] border border-neutral-800 px-3 py-2 rounded-lg text-sm outline-none focus:border-blue-500"
+                  placeholder="Nome..." 
+                  className="bg-[#0a0a0a] border border-neutral-800 px-2 md:px-3 py-1.5 md:py-2 rounded-lg text-xs md:text-sm outline-none focus:border-blue-500 w-24 md:w-auto"
                 />
                 <button 
                   onClick={handleCreate} 
                   disabled={selectedCount === 0 || !newCatName}
-                  className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                  className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-bold transition-colors flex items-center gap-1 md:gap-2 whitespace-nowrap"
                 >
-                  <Plus size={16}/> Salvar ({selectedCount})
+                  <Plus size={14} className="md:size-4"/> Salvar ({selectedCount})
                 </button>
-                <button onClick={onCancelSelection} className="text-neutral-400 hover:text-white px-3 text-sm">Cancelar</button>
+                <button onClick={onCancelSelection} className="text-neutral-400 hover:text-white px-1 md:px-3 text-xs md:text-sm font-bold">X</button>
               </div>
             ) : (
-              <button onClick={() => setSelectionMode(true)} className="flex items-center gap-2 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-sm font-medium transition-all">
-                <Plus size={16}/> Criar Categoria
+              <button onClick={() => setSelectionMode(true)} className="flex items-center gap-1 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-xs md:text-sm font-medium transition-all whitespace-nowrap">
+                <Plus size={14} className="md:size-4"/> <span className="hidden xs:inline">Criar</span> Categoria
               </button>
             )}
           </>
