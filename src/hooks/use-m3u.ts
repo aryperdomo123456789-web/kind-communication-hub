@@ -30,7 +30,14 @@ export function useM3U() {
     }
   });
 
-  const [activeListUrl, setActiveListUrl] = useState(m3uLists[0]?.url || "");
+  const [activeListUrl, setActiveListUrl] = useState(() => {
+    if (typeof window === 'undefined') return "";
+    return localStorage.getItem("active_m3u_url") || (m3uLists[0]?.url || "");
+  });
+
+  useEffect(() => {
+    localStorage.setItem("active_m3u_url", activeListUrl);
+  }, [activeListUrl]);
 
   // Custom Categories Persistence
   const [customCategories, setCustomCategories] = useState<Record<string, M3UItem[]>>(() => {
