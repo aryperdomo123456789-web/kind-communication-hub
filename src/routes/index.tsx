@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useM3U } from "@/hooks/use-m3u";
+import { cn } from "@/lib/utils";
 import { Sidebar } from "@/components/m3u/Sidebar";
 import { Header } from "@/components/m3u/Header";
 import { ContentItem } from "@/components/m3u/ContentItem";
