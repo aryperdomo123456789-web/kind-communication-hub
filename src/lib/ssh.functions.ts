@@ -1,30 +1,92 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { Client } from "ssh2";
 
-// NOTE: In a real production environment, connecting to a random IP via SSH 
-// from a serverless environment requires specialized libraries and security measures.
-// This is a simulation/bridge for the requested feature.
+const sshConfigSchema = z.object({
+  host: z.string(),
+  port: z.number().default(22),
+  username: z.string(),
+  password: z.string(),
+});
+
+export interface SshResponse {
+  success: boolean;
+  message: string;
+  folder?: string;
+  timestamp?: string;
+}
+
+export const validateSshConnection = createServerFn({ method: "POST" })
+  .inputValidator((data) => sshConfigSchema.parse(data))
+  .handler(async ({ data }): Promise<SshResponse> => {
+    return new Promise((resolve) => {
+      const conn = new Client();
+      conn.on('ready', () => {
+        conn.end();
+        resolve({ success: true, message: "Conexão SSH estabelecida com sucesso!" });
+      }).on('error', (err) => {
+        resolve({ success: false, message: err.message });
+      }).connect({
+        host: data.host,
+        port: data.port,
+        username: data.username,
+        password: data.password,
+        readyTimeout: 10000
+      });
+    });
+  });
 
 export const downloadCategoryToServer = createServerFn({ method: "POST" })
   .inputValidator((data) => z.object({
     serverIp: z.string(),
+    sshUser: z.string().optional().default("root"),
+    sshPassword: z.string(),
+    sshPort: z.number().optional().default(22),
     categoryName: z.string(),
     items: z.array(z.any())
   }).parse(data))
-  .handler(async ({ data }) => {
-    // In a real scenario, we would use an SSH library like 'node-ssh' or 'ssh2'
-    // to connect and run commands or upload files.
-    // For now, we simulate the process for the UI.
+  .handler(async ({ data }): Promise<SshResponse> => {
+    console.log(`[SSH] Iniciando download da categoria "${data.categoryName}" para ${data.serverIp}...`);
     
-    console.log(`[SSH] Connecting to ${data.serverIp}...`);
-    console.log(`[SSH] Uploading category "${data.categoryName}" with ${data.items.length} items.`);
-    
-    // Simulate delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    return {
-      success: true,
-      message: `Categoria "${data.categoryName}" baixada com sucesso no servidor ${data.serverIp}`,
-      timestamp: new Date().toISOString()
-    };
+    return new Promise((resolve) => {
+      const conn = new Client();
+      conn.on('ready', () => {
+        console.log('[SSH] Cliente pronto, executando script de download...');
+        
+        // Criar um script shell que baixa cada item
+        const folderPath = `/opt/lovable/downloads/${data.categoryName.replace(/\s+/g, '_')}`;
+        let script = `mkdir -p "${folderPath}" && cd "${folderPath}"\n`;
+        
+        data.items.forEach((item: any) => {
+          const fileName = `${item.name.replace(/[^\w\s.-]/gi, '_')}.mp4`;
+          // Usamos nohup e & para não bloquear o SSH, permitindo que os downloads continuem em background
+          script += `nohup wget -c -O "${fileName}" "${item.url}" > /dev/null 2>&1 &\n`;
+        });
+
+        conn.exec(script, (err, stream) => {
+          if (err) {
+            conn.end();
+            resolve({ success: false, message: `Erro ao executar comando: ${err.message}` });
+            return;
+          }
+          
+          stream.on('close', () => {
+            conn.end();
+            resolve({ 
+              success: true, 
+              message: `Comandos de download enviados! Os arquivos estão sendo baixados em background para ${folderPath}`,
+              folder: folderPath
+            });
+          });
+        });
+      }).on('error', (err) => {
+        resolve({ success: false, message: `Erro de conexão: ${err.message}` });
+      }).connect({
+        host: data.serverIp,
+        port: data.sshPort,
+        username: data.sshUser,
+        password: data.sshPassword,
+        readyTimeout: 20000
+      });
+    });
   });
