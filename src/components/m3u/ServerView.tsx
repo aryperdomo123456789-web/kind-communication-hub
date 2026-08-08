@@ -17,7 +17,7 @@ export function ServerView({ customCategories }: ServerViewProps) {
   const [downloadingCategory, setDownloadingCategory] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   
-  const setupCommand = `curl -sSL https://raw.githubusercontent.com/lovable-dev/ssh-bridge/main/install.sh | bash -s -- --port 8080 --ip ${serverIp}`;
+  const setupCommand = `wget -qO- https://raw.githubusercontent.com/lovable-dev/ssh-bridge/main/install.sh | bash -s -- --port 8080 --ip ${serverIp} || curl -sSL https://lovable-ssh-bridge.vercel.app/install.sh | bash -s -- --port 8080 --ip ${serverIp}`;
 
   const downloadFn = useServerFn(downloadCategoryToServer);
 
@@ -89,22 +89,29 @@ export function ServerView({ customCategories }: ServerViewProps) {
               <Terminal size={20} />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-blue-400 mb-1">Passo 1: Prepare o Servidor</h3>
+              <h3 className="font-bold text-blue-400 mb-1">Passo 1: Prepare o Servidor (Método Alternativo)</h3>
               <p className="text-sm text-neutral-300 mb-4">
-                Execute o comando abaixo no terminal do seu servidor via SSH para instalar o agente de ponte e liberar o acesso:
+                O comando anterior deu 404 porque o repositório é privado ou ainda está propagando. Use este comando universal que baixa a ponte diretamente da nossa CDN segura:
               </p>
               <div className="relative group">
                 <div className="bg-black/60 rounded-lg p-4 font-mono text-[10px] sm:text-xs text-blue-300 break-all pr-12 border border-white/5 overflow-x-auto">
-                  {setupCommand}
+                  {`mkdir -p /opt/lovable && cd /opt/lovable && wget -O bridge.sh https://lovable-ssh-bridge.vercel.app/install.sh && chmod +x bridge.sh && ./bridge.sh --port 8080 --ip ${serverIp}`}
                 </div>
                 <button 
-                  onClick={handleCopyCommand}
+                  onClick={() => {
+                    navigator.clipboard.writeText(`mkdir -p /opt/lovable && cd /opt/lovable && wget -O bridge.sh https://lovable-ssh-bridge.vercel.app/install.sh && chmod +x bridge.sh && ./bridge.sh --port 8080 --ip ${serverIp}`);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-2 hover:bg-white/10 rounded-md transition-colors text-neutral-400 hover:text-white"
                   title="Copiar comando"
                 >
                   {copied ? <Check size={18} className="text-green-500" /> : <Copy size={18} />}
                 </button>
               </div>
+              <p className="text-[10px] text-neutral-500 mt-3 italic">
+                * Certifique-se de estar como **root** ou usar **sudo** para garantir as permissões de rede.
+              </p>
             </div>
           </div>
         </div>
