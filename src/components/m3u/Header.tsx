@@ -40,7 +40,8 @@ export function Header({
     series: "Séries",
     live: "Ao Vivo",
     custom: "Minhas Categorias",
-    settings: "Gerenciar Listas"
+    settings: "Gerenciar Listas",
+    server: "Conectar Servidor"
   };
 
   return (
@@ -56,7 +57,7 @@ export function Header({
           {titleMap[activeView]}
         </h2>
         
-        {activeView !== "settings" && activeView !== "custom" && (
+        {activeView !== "settings" && activeView !== "custom" && activeView !== "server" && (
           <div className="relative flex-1 max-w-[200px] md:max-w-md hidden sm:block">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={18}/>
             <input 
@@ -73,7 +74,7 @@ export function Header({
       <div className="flex items-center gap-2 md:gap-3 shrink-0">
         {isLoading && <div className="animate-spin rounded-full h-4 w-4 md:h-5 md:w-5 border-2 border-blue-500 border-t-transparent mr-1 md:mr-2"></div>}
         
-        {activeView !== "settings" && activeView !== "custom" && (
+        {activeView !== "settings" && activeView !== "custom" && activeView !== "server" && (
           <>
             {selectionMode ? (
               <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4">
