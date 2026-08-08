@@ -35,7 +35,17 @@ export function parseM3U(content: string): M3UParsed {
   const lines = content.split("\n");
   const items: M3UItem[] = [];
   
-  let currentItem: Partial<M3UItem> = {};
+  let tempItem: {
+    id?: string;
+    name?: string;
+    logo?: string;
+    group?: string;
+    rawName?: string;
+    url?: string;
+    type?: "movie" | "series" | "live";
+    season?: string;
+    episode?: string;
+  } = {};
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -48,37 +58,47 @@ export function parseM3U(content: string): M3UParsed {
       const rawName = commaIndex !== -1 ? line.substring(commaIndex + 1).trim() : (nameMatch?.[1] || "Unknown");
 
       const nameStr = nameMatch?.[1] || rawName;
-      currentItem = {
+      tempItem = {
         id: Math.random().toString(36).substring(7),
         name: nameStr,
         logo: logoMatch?.[1] || "",
         group: groupMatch?.[1] || "Uncategorized",
         rawName: rawName,
       };
-    } else if (line.startsWith("http")) {
-      currentItem.url = line;
-      
-      const currentRawName = currentItem.rawName || "";
-      if (line.includes("/movie/")) {
-        currentItem.type = "movie";
-      } else if (line.includes("/series/")) {
-        currentItem.type = "series";
-        const sMatch = currentRawName.match(/S(\d+)E(\d+)/i) || currentRawName.match(/(\d+)x(\d+)/i);
+    } else if (line.startsWith("http") && tempItem.name) {
+      const url = line;
+      const rawName = tempItem.rawName || "";
+      let type: "movie" | "series" | "live" = "live";
+      let season: string | undefined;
+      let episode: string | undefined;
+
+      if (url.includes("/movie/")) {
+        type = "movie";
+      } else if (url.includes("/series/")) {
+        type = "series";
+        const sMatch = rawName.match(/S(\d+)E(\d+)/i) || rawName.match(/(\d+)x(\d+)/i);
         if (sMatch) {
-          currentItem.season = sMatch[1].padStart(2, '0');
-          currentItem.episode = sMatch[2].padStart(2, '0');
+          season = sMatch[1].padStart(2, '0');
+          episode = sMatch[2].padStart(2, '0');
         } else {
-          currentItem.season = "01";
-          currentItem.episode = "01";
+          season = "01";
+          episode = "01";
         }
-      } else {
-        currentItem.type = "live";
       }
+
+      items.push({
+        id: tempItem.id || Math.random().toString(36).substring(7),
+        name: tempItem.name,
+        logo: tempItem.logo,
+        group: tempItem.group || "Uncategorized",
+        url: url,
+        type: type,
+        season: season,
+        episode: episode,
+        rawName: rawName,
+      });
       
-      if (currentItem.url && currentItem.name) {
-        items.push(currentItem as M3UItem);
-      }
-      currentItem = {};
+      tempItem = {};
     }
   }
 
