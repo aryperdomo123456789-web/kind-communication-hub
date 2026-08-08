@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Server, Shield, Download, CheckCircle2, Loader2, Send, Terminal, Copy, Check } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { downloadCategoryToServer, validateSshConnection } from "@/lib/ssh.functions";
+import { downloadCategoryToServer, validateSshConnection, type SshResponse } from "@/lib/ssh.functions";
 import { M3UItem } from "@/lib/m3u/types";
 
 interface ServerViewProps {
@@ -43,7 +43,7 @@ export function ServerView({ customCategories }: ServerViewProps) {
           username: sshUser,
           password: sshPassword
         }
-      });
+      }) as SshResponse;
       
       if (result.success) {
         setSshStatus("connected");
@@ -66,14 +66,22 @@ export function ServerView({ customCategories }: ServerViewProps) {
     
     setDownloadingCategory(categoryName);
     try {
-      await downloadFn({
+      const result = await downloadFn({
         data: {
           serverIp,
+          sshUser,
+          sshPassword,
+          sshPort: parseInt(sshPort),
           categoryName,
           items: customCategories[categoryName]
         }
-      });
-      alert(`Sucesso! Categoria "${categoryName}" enviada para o servidor.`);
+      }) as SshResponse;
+      
+      if (result.success) {
+        alert(result.message);
+      } else {
+        alert("Erro: " + result.message);
+      }
     } catch (error) {
       alert("Erro ao enviar categoria.");
     } finally {
