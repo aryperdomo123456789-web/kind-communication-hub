@@ -41,7 +41,9 @@ export function parseM3U(content: string): M3UParsed {
   let currentRawName: string | null = null;
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
+    const rawLine = lines[i];
+    if (!rawLine) continue;
+    const line = rawLine.trim();
     if (!line) continue;
 
     if (line.startsWith("#EXTINF:")) {
@@ -86,7 +88,7 @@ export function parseM3U(content: string): M3UParsed {
 
       items.push({
         id: Math.random().toString(36).substring(7),
-        name: currentName,
+        name: currentName || "Unknown",
         logo: currentLogo || "",
         group: currentGroup || "Uncategorized",
         url: url,
