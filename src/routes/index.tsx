@@ -13,17 +13,19 @@ function Index() {
   
   // Listas M3U (PERSISTÊNCIA)
   const [m3uLists, setM3uLists] = useState<{name: string, url: string}[]>(() => {
+    if (typeof window === 'undefined') return [];
     try {
-      const saved = typeof window !== 'undefined' ? localStorage.getItem("m3u_lists") : null;
-      return saved ? JSON.parse(saved) : [
+      const saved = localStorage.getItem("m3u_lists");
+      if (saved) return JSON.parse(saved);
+      
+      const defaultLists = [
         { name: "Principal", url: "http://servicedovod.shop:80//get.php?username=TesteCompanyHOST&password=392380odasw&type=m3u_plus&output=hls" },
         { name: "Secundária", url: "http://ctfautt.cc:80/get.php?username=4nXdgX37oV&password=pLxSa2hRSP&type=m3u_plus&output=hls" }
       ];
+      localStorage.setItem("m3u_lists", JSON.stringify(defaultLists));
+      return defaultLists;
     } catch (e) {
-      return [
-        { name: "Principal", url: "http://servicedovod.shop:80//get.php?username=TesteCompanyHOST&password=392380odasw&type=m3u_plus&output=hls" },
-        { name: "Secundária", url: "http://ctfautt.cc:80/get.php?username=4nXdgX37oV&password=pLxSa2hRSP&type=m3u_plus&output=hls" }
-      ];
+      return [];
     }
   });
   
@@ -50,21 +52,24 @@ function Index() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleProcess = async (url: string) => {
-    if (!url) return;
+    if (!url || isLoading) return;
     setIsLoading(true);
     setActiveListUrl(url);
     try {
-      console.log("Processando URL:", url);
+      console.log("Iniciando auditoria e processamento da M3U:", url);
       const parsed = await parseM3U(url);
+      
       if (parsed && (parsed.movies.length > 0 || parsed.series.length > 0 || parsed.live.length > 0)) {
+        console.log(`Sucesso! Encontrados: ${parsed.movies.length} categorias de filmes, ${parsed.series.length} séries.`);
         setData(parsed);
-        // Só muda a view se estivermos vindo das configurações ou se não houver dados
         if (activeView === "settings") setActiveView("movies");
       } else {
-        console.warn("Nenhum dado retornado da M3U");
+        console.error("M3U vazia ou formato inválido detectado na auditoria.");
+        alert("A lista M3U parece estar vazia ou o servidor não respondeu corretamente. Verifique a URL.");
       }
     } catch (error) {
-      console.error("Erro ao processar M3U:", error);
+      console.error("Erro crítico no motor de processamento:", error);
+      alert("Erro ao processar lista. O proxy pode estar sobrecarregado ou a URL é inválida.");
     } finally {
       setIsLoading(false);
     }
