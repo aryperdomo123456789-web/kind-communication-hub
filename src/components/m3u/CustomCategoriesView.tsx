@@ -1,5 +1,5 @@
 import { List } from "lucide-react";
-import { M3UItem } from "@/lib/m3u";
+import { M3UItem } from "@/lib/m3u/types";
 import { ContentItem } from "./ContentItem";
 
 interface CustomCategoriesViewProps {

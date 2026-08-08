@@ -1,5 +1,5 @@
 import { Film, Tv, Play, List, Settings } from "lucide-react";
-import { M3UParsed, M3UCategory } from "@/lib/m3u";
+import { M3UParsed, M3UCategory } from "@/lib/m3u/types";
 import { ViewType } from "@/hooks/use-m3u";
 
 interface SidebarProps {
