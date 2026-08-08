@@ -53,10 +53,9 @@ export async function parseM3U(content: string): Promise<M3UParsed> {
   // Se o conteúdo parecer uma URL, tentamos buscar a lista
   if (content.trim().startsWith("http")) {
     try {
-      // Usando o servidor do Lovable (node_compat) para buscar se for SSR ou via API, 
-      // mas como este código roda no cliente, vamos usar axios/fetch.
-      // Se der erro de CORS, o ideal seria um server function.
-      const response = await fetch(content.trim());
+      // Usamos o nosso proxy para evitar problemas de CORS
+      const proxyUrl = `/api/public/m3u?url=${encodeURIComponent(content.trim())}`;
+      const response = await fetch(proxyUrl);
       if (response.ok) {
         finalContent = await response.text();
       }
