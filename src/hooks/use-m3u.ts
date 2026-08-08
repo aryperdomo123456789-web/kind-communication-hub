@@ -118,7 +118,18 @@ export function useM3U() {
   };
 
   const removeM3UList = (url: string) => {
-    setM3uLists(prev => prev.filter(l => l.url !== url));
+    setM3uLists(prev => {
+      const next = prev.filter(l => l.url !== url);
+      if (activeListUrl === url) {
+        if (next.length > 0) {
+          setActiveListUrl(next[0].url);
+        } else {
+          setActiveListUrl("");
+          setData(null);
+        }
+      }
+      return next;
+    });
   };
 
   const getFilteredItems = useCallback(() => {
