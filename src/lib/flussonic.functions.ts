@@ -14,26 +14,30 @@ const SERVER_CONFIG = {
   password: "mago3333123", // Já fornecido pelo usuário em mensagens anteriores
 };
 
-export const createFlussonicCategory = createServerFn({ method: "POST" })
-  .inputValidator((data) => z.object({ name: z.string() }).parse(data))
-  .handler(async ({ data }): Promise<FlussonicResponse> => {
-    const slug = data.name.toLowerCase().replace(/\s+/g, '-');
-    const cmd = `mkdir -p /opt/flussonic/priv/${slug}`;
+export const listFlussonicCategories = createServerFn({ method: "GET" })
+  .handler(async (): Promise<{success: boolean, categories: string[]}> => {
+    const cmd = `ls -F /opt/flussonic/priv/ | grep / | sed 's/\\///'`;
     
     return new Promise((resolve) => {
       const conn = new Client();
       conn.on('ready', () => {
         conn.exec(cmd, (err, stream) => {
-          if (err) resolve({ success: false, message: "Erro SSH: " + err.message });
+          if (err) resolve({ success: false, categories: [] });
+          let data = '';
+          stream.on('data', (chunk: Buffer) => { data += chunk; });
           stream.on('close', () => {
             conn.end();
-            resolve({ success: true, message: `Categoria "${data.name}" forjada em /opt/flussonic/priv/${slug}` });
+            const categories = data.split('\n').filter(Boolean);
+            resolve({ success: true, categories });
           });
         });
-      }).on('error', (err) => resolve({ success: false, message: "Conexão falhou: " + err.message }))
+      }).on('error', () => resolve({ success: false, categories: [] }))
         .connect(SERVER_CONFIG);
     });
   });
+
+export const createFlussonicCategory = createServerFn({ method: "POST" })
+
 
 export const createFlussonicChannel = createServerFn({ method: "POST" })
   .inputValidator((data) => z.object({
