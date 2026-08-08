@@ -6,7 +6,8 @@ import { Header } from "@/components/m3u/Header";
 import { ContentItem } from "@/components/m3u/ContentItem";
 import { SettingsView } from "@/components/m3u/SettingsView";
 import { CustomCategoriesView } from "@/components/m3u/CustomCategoriesView";
-import { Search, Menu, X } from "lucide-react";
+import { Search, Menu, X, Server } from "lucide-react";
+import { ServerView } from "@/components/m3u/ServerView";
 import { useState } from "react";
 
 export const Route = createFileRoute("/")({
@@ -92,6 +93,8 @@ function Index() {
                 categories={customCategories} 
                 onDeleteCategory={deleteCustomCategory} 
               />
+            ) : activeView === "server" ? (
+              <ServerView customCategories={customCategories} />
             ) : (
               <div className="space-y-6 animate-in fade-in duration-300">
                   {selectionMode && (

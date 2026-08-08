@@ -1,4 +1,4 @@
-import { Film, Tv, Play, List, Settings, X } from "lucide-react";
+import { Film, Tv, Play, List, Settings, X, Server } from "lucide-react";
 import { M3UParsed, M3UCategory } from "@/lib/m3u/types";
 import { ViewType } from "@/hooks/use-m3u";
 import { cn } from "@/lib/utils";
@@ -68,6 +68,12 @@ export function Sidebar({ activeView, setActiveView, data, setSearchQuery, class
           className={`p-3 rounded-xl transition-all flex items-center gap-3 ${activeView === "settings" ? "bg-blue-600 shadow-lg shadow-blue-600/20" : "text-neutral-400 hover:bg-neutral-800"}`}
         >
           <Settings size={20}/> <span className="font-medium">Listas M3U</span>
+        </button>
+        <button 
+          onClick={() => navigate("server")} 
+          className={`p-3 rounded-xl transition-all flex items-center gap-3 ${activeView === "server" ? "bg-blue-600 shadow-lg shadow-blue-600/20" : "text-neutral-400 hover:bg-neutral-800"}`}
+        >
+          <Server size={20}/> <span className="font-medium">Conectar Servidor</span>
         </button>
       </nav>
     </div>

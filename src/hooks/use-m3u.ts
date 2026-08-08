@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { parseM3U } from "@/lib/m3u";
 import { M3UParsed, M3UItem, M3UCategory } from "@/lib/m3u/types";
 
-export type ViewType = "movies" | "series" | "live" | "custom" | "settings";
+export type ViewType = "movies" | "series" | "live" | "custom" | "settings" | "server";
 
 export function useM3U() {
   const [isLoading, setIsLoading] = useState(false);
