@@ -1,4 +1,4 @@
-import { List, Download, Tv, Loader2, CheckCircle2 } from "lucide-react";
+import { List, Tv, Loader2, X } from "lucide-react";
 import { M3UItem } from "@/lib/m3u/types";
 import { ContentItem } from "./ContentItem";
 import { useState } from "react";
@@ -14,6 +14,7 @@ export function CustomCategoriesView({ categories, onDeleteCategory }: CustomCat
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
   const createCatFn = useServerFn(createFlussonicCategory);
   const createChannelFn = useServerFn(createFlussonicChannel);
+
 
   const categoryEntries = Object.entries(categories);
 
