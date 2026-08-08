@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { parseM3U, M3UParsed, M3UItem } from "@/lib/m3u";
+import { useEffect } from "react";
 import { Play, Film, Tv, ChevronLeft, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/")({
