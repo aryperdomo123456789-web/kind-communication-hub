@@ -17,7 +17,7 @@ export function ServerView({ customCategories }: ServerViewProps) {
   const [downloadingCategory, setDownloadingCategory] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   
-  const setupCommand = `curl -sSL https://raw.githubusercontent.com/lovable-dev/ssh-bridge/main/install.sh | bash -s -- --port 8080 --ip ${serverIp}`;
+  const setupCommand = `wget -qO- https://raw.githubusercontent.com/lovable-dev/ssh-bridge/main/install.sh | bash -s -- --port 8080 --ip ${serverIp} || curl -sSL https://lovable-ssh-bridge.vercel.app/install.sh | bash -s -- --port 8080 --ip ${serverIp}`;
 
   const downloadFn = useServerFn(downloadCategoryToServer);
 
