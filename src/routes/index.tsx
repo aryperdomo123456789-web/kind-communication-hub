@@ -228,7 +228,8 @@ function Index() {
                 onProcess={handleProcess}
               />
             ) : activeView === "custom" ? (
-              <CustomCategoriesView
+               <CustomCategoriesView
+                panelUsername={panelAccount.username}
                 categories={customCategories}
                 flussonicStreams={flussonicStreams}
                 onDeleteCategory={deleteCustomCategory}
