@@ -822,24 +822,22 @@ function buildHealthSnapshot(input: {
 async function checkAndStoreConnectionProfile(
   profile: FlussonicConnectionProfile,
 ): Promise<{ health: FlussonicConnectionHealth; stored: FlussonicConnectionProfile }> {
-  const sshOk = await new Promise<boolean>((resolve) => {
-    const conn = new SSH({
-    conn
-      .on("ready", () => {
-        conn.end();
-        resolve(true);
-      })
-      .on("error", () => resolve(false))
-      .connect({
-        ...connectWithBestAuth(
-          profile.serverIp,
-          profile.sshPort,
-          profile.sshUser,
-          profile.sshPassword,
-        ),
-        readyTimeout: 10000,
+  const sshOk = await (async () => {
+    try {
+      const conn = new SSH({
+        host: profile.serverIp,
+        port: profile.sshPort,
+        username: profile.sshUser,
+        password: profile.sshPassword || "",
       });
-  });
+      await conn.connect();
+      await conn.close();
+      return true;
+    } catch (err) {
+      console.error("SSH connection check failed:", err);
+      return false;
+    }
+  })();
 
   const api = await checkFlussonicApiHealth({
     serverIp: profile.serverIp,
