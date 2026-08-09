@@ -338,18 +338,133 @@ export const generateFlussonicPublicPlaylist = createServerFn({ method: "POST" }
 
 // Aliases for FlussonicView compatibility
 export const createFlussonicCategory = createServerFn({ method: "POST" })
-  .validator(z.object({ name: z.string() }))
+  .validator(z.object({ 
+    serverIp: z.string(),
+    sshUser: z.string(),
+    sshPassword: z.string().optional(),
+    sshPort: z.number(),
+    name: z.string() 
+  }))
   .handler(async ({ data }) => {
-    return { success: true, message: `Categoria ${data.name} criada` };
+    const conn = new Client();
+    try {
+      await new Promise((resolve, reject) => {
+        conn.on("ready", () => resolve(true));
+        conn.on("error", reject);
+        conn.connect({
+          host: data.serverIp,
+          port: data.sshPort,
+          username: data.sshUser,
+          password: data.sshPassword || "",
+        });
+      });
+
+      const cmd = `mkdir -p /opt/flussonic/priv/${data.name}`;
+      await new Promise((resolve, reject) => {
+        conn.exec(cmd, (err, stream) => {
+          if (err) return reject(err);
+          stream.on("close", resolve).on("error", reject).resume();
+        });
+      });
+      conn.end();
+      return { success: true, message: `Categoria ${data.name} criada com sucesso no servidor` };
+    } catch (err: any) {
+      if (conn) conn.end();
+      return { success: false, message: `Erro SSH: ${err.message}` };
+    }
   });
 
 export const createFlussonicChannel = createServerFn({ method: "POST" })
-  .validator(z.object({ name: z.string(), category: z.string().optional(), videos: z.array(z.string()) }))
+  .validator(z.object({ 
+    serverIp: z.string(),
+    sshUser: z.string(),
+    sshPassword: z.string().optional(),
+    sshPort: z.number(),
+    name: z.string(), 
+    category: z.string().optional(), 
+    videos: z.array(z.string()) 
+  }))
   .handler(async ({ data }) => {
-    return { success: true, message: `Canal ${data.name} criado` };
+    const conn = new Client();
+    try {
+      await new Promise((resolve, reject) => {
+        conn.on("ready", () => resolve(true));
+        conn.on("error", reject);
+        conn.connect({
+          host: data.serverIp,
+          port: data.sshPort,
+          username: data.sshUser,
+          password: data.sshPassword || "",
+        });
+      });
+
+      const categoryPath = data.category ? `/${data.category}` : "";
+      const playlistContent = data.videos.join("\n");
+      const playlistPath = `/opt/flussonic/priv${categoryPath}/${data.name}.txt`;
+      
+      // Write playlist
+      await new Promise((resolve, reject) => {
+        conn.exec(`cat << 'EOF' > ${playlistPath}\n${playlistContent}\nEOF`, (err, stream) => {
+          if (err) return reject(err);
+          stream.on("close", resolve).on("error", reject).resume();
+        });
+      });
+
+      // Update flussonic.conf
+      const streamConfig = `
+stream ${data.name} {
+  input vod://${data.category || 'vod'}/${data.name}.txt;
+}
+`;
+      await new Promise((resolve, reject) => {
+        conn.exec(`grep -q "stream ${data.name} {" /etc/flussonic/flussonic.conf || echo '${streamConfig}' >> /etc/flussonic/flussonic.conf && service flussonic reload`, (err, stream) => {
+          if (err) return reject(err);
+          stream.on("close", resolve).on("error", reject).resume();
+        });
+      });
+
+      conn.end();
+      return { success: true, message: `Canal ${data.name} criado e Flussonic recarregado` };
+    } catch (err: any) {
+      if (conn) conn.end();
+      return { success: false, message: `Erro SSH: ${err.message}` };
+    }
   });
 
-export const listFlussonicCategories = createServerFn({ method: "GET" })
-  .handler(async () => {
-    return { success: true, categories: [] };
+export const listFlussonicCategories = createServerFn({ method: "POST" })
+  .validator(z.object({
+    serverIp: z.string(),
+    sshUser: z.string(),
+    sshPassword: z.string().optional(),
+    sshPort: z.number(),
+  }))
+  .handler(async ({ data }) => {
+    const conn = new Client();
+    try {
+      await new Promise((resolve, reject) => {
+        conn.on("ready", () => resolve(true));
+        conn.on("error", reject);
+        conn.connect({
+          host: data.serverIp,
+          port: data.sshPort,
+          username: data.sshUser,
+          password: data.sshPassword || "",
+        });
+      });
+
+      let output = "";
+      await new Promise((resolve, reject) => {
+        conn.exec("ls -d /opt/flussonic/priv/*/ 2>/dev/null | xargs -n 1 basename", (err, stream) => {
+          if (err) return reject(err);
+          stream.on("data", (d: any) => output += d.toString());
+          stream.on("close", resolve).on("error", reject);
+        });
+      });
+      conn.end();
+      const categories = output.split("\n").filter(Boolean);
+      return { success: true, categories };
+    } catch (err: any) {
+      if (conn) conn.end();
+      return { success: false, message: `Erro SSH: ${err.message}`, categories: [] };
+    }
   });
