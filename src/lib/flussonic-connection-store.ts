@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import Database from "better-sqlite3";
+import Database from "@libsql/sqlite3";
 
 export type FlussonicConnectionHealthState = "connected" | "degraded" | "disconnected";
 
@@ -193,7 +193,7 @@ function rowToProfile(row: {
       ? (JSON.parse(row.last_health_json) as FlussonicConnectionHealth)
       : undefined,
     isActive: row.is_active === 1,
-  };
+  } as SavedFlussonicConnectionProfile;
 }
 
 function rowToUser(row: {
@@ -393,7 +393,7 @@ export async function listSavedFlussonicConnectionProfiles(panelUsername: string
 export async function getSavedFlussonicConnectionProfile(
   panelUsername: string,
   profileId?: string,
-) {
+): Promise<SavedFlussonicConnectionProfile | null> {
   const normalizedUsername = normalizePanelUsername(panelUsername);
 
   if (profileId) {
