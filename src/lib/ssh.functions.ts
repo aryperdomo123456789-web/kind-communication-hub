@@ -807,7 +807,7 @@ function buildHealthSnapshot(input: {
       ? "Conexão persistente validada via SSH e API."
       : state === "degraded"
         ? "Conexão parcial: SSH ou API respondeu, mas não os dois ao mesmo tempo."
-        : input.sshMessage || input.apiMessage || "Falha ao validar a conexão.";
+        : input.sshMessage || input.apiMessage ||  "Falha ao validar a conexão.";
 
   return {
     state,
@@ -851,13 +851,13 @@ async function checkAndStoreConnectionProfile(
   const health = buildHealthSnapshot({
     sshOk,
     apiOk: api.ok,
-    sshMessage: sshOk ? undefined : "SSH não respondeu.",
-    apiMessage: api.ok ? undefined : api.message,
+    sshMessage: sshOk ? "" : "SSH não respondeu.",
+    apiMessage: api.ok ? "" : (api.message || "Erro na API"),
   });
 
   const stored = await saveFlussonicConnectionProfile({
     ...profile,
-    lastHealth: health,
+    lastHealth: health }) as FlussonicConnectionProfile
   });
 
   return { health, stored };
