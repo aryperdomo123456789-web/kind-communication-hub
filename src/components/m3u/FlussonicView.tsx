@@ -27,7 +27,7 @@ export function FlussonicView({ panelUsername }: { panelUsername: string }) {
   const createCatFn = useServerFn(createFlussonicCategory);
   const createChannelFn = useServerFn(createFlussonicChannel);
   const listCatsFn = useServerFn(listFlussonicCategories);
-  const loadProfileFn = useServerFn(getSavedFlussonicConnectionProfile);
+  const loadProfileFn = useServerFn(loadFlussonicConnectionProfile);
 
   const refreshCategories = async () => {
     if (!panelUsername) return;
