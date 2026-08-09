@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
+import type { Statement, Transaction } from "better-sqlite3";;
 
 export type FlussonicConnectionHealthState = "connected" | "degraded" | "disconnected";
 
@@ -113,7 +114,7 @@ function defaultPanelUser(): PanelUserRecord {
 function ensureDefaultUser() {
   const existing = db
     .prepare("SELECT username FROM users WHERE username = ?")
-    .get(DEFAULT_PANEL_ACCOUNT.username) as { username?: string } | undefined;
+    .get(DEFAULT_PANEL_ACCOUNT.username) as any;
 
   if (!existing) {
     const user = defaultPanelUser();
@@ -385,7 +386,7 @@ export async function listSavedFlussonicConnectionProfiles(panelUsername: string
        WHERE panel_username = ?
        ORDER BY updated_at DESC`,
     )
-    .all(normalizePanelUsername(panelUsername)) as Array<Parameters<typeof rowToProfile>[0]>;
+    .all(normalizePanelUsername(panelUsername)) as any[];
 
   return rows.map(rowToProfile);
 }
@@ -405,7 +406,7 @@ export async function getSavedFlussonicConnectionProfile(
          FROM flussonic_profiles
          WHERE panel_username = ? AND profile_id = ?`,
       )
-      .get(normalizedUsername, profileId) as Parameters<typeof rowToProfile>[0] | undefined;
+      .get(normalizedUsername, profileId) as any;
     return row ? rowToProfile(row) : null;
   }
 
@@ -426,7 +427,7 @@ export async function getSavedFlussonicConnectionProfile(
        ORDER BY is_active DESC, updated_at DESC, created_at DESC
        LIMIT 1`,
     )
-    .get(normalizedUsername) as Parameters<typeof rowToProfile>[0] | undefined;
+    .get(normalizedUsername) as any;
 
   return first ? rowToProfile(first) : null;
 }
@@ -439,7 +440,7 @@ export async function saveFlussonicConnectionProfile(profile: SavedFlussonicConn
       `SELECT profile_id, created_at, panel_username
        FROM flussonic_profiles WHERE profile_id = ? AND panel_username = ?`,
     )
-    .get(profileId, normalizedUsername) as { profile_id: string; created_at: string } | undefined;
+    .get(profileId, normalizedUsername) as any | undefined;
 
   const createdAt = existing?.created_at || profile.createdAt || nowIso();
   const updatedAt = nowIso();
