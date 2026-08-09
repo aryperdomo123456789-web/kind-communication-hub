@@ -5,7 +5,7 @@ import {
   createFlussonicCategory, 
   createFlussonicChannel, 
   listFlussonicCategories, 
-  getSavedFlussonicConnectionProfile,
+  loadFlussonicConnectionProfile,
   type FlussonicResponse 
 } from "@/lib/ssh.functions";
 
