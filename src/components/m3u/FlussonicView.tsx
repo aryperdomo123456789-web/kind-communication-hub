@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Tv, FolderPlus, Plus, Loader2, CheckCircle2, AlertCircle, Info, RefreshCcw } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { createFlussonicCategory, createFlussonicChannel, listFlussonicCategories, type FlussonicResponse } from "@/lib/flussonic.functions";
+import { createFlussonicCategory, createFlussonicChannel, listFlussonicCategories, type FlussonicResponse } from "@/lib/ssh.functions";
 
 export function FlussonicView() {
   const [activeTab, setActiveTab] = useState<"category" | "channel">("category");

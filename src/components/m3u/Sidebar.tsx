@@ -37,7 +37,7 @@ export function Sidebar({
 }: SidebarProps) {
   const handleNavigate = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
-      const view = event.currentTarget.dataset.view as ViewType | undefined;
+      const view = event.currentTarget.dataset['view'] as ViewType | undefined;
       if (!view) return;
 
       setActiveView(view);
