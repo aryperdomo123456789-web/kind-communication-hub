@@ -11,23 +11,28 @@ export const Route = createFileRoute("/api/public/m3u")({
         try {
           const response = await fetch(url, {
             headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
+              "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            },
           });
           if (!response.ok) {
-            return new Response(`Failed to fetch M3U: ${response.statusText}`, { status: response.status });
+            return new Response(`Failed to fetch M3U: ${response.statusText}`, {
+              status: response.status,
+            });
           }
           const data = await response.text();
           return new Response(data, {
             headers: {
               "Content-Type": "text/plain; charset=utf-8",
               "Access-Control-Allow-Origin": "*",
-              "Cache-Control": "public, max-age=3600"
+              "Cache-Control": "public, max-age=3600",
             },
           });
-        } catch (e: any) {
-          console.error("Proxy fetch error:", e);
-          return new Response(e.message, { status: 500 });
+        } catch (error) {
+          console.error("Proxy fetch error:", error);
+          return new Response(error instanceof Error ? error.message : "Proxy fetch error", {
+            status: 500,
+          });
         }
       },
     },

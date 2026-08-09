@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Canal por categoria no Flussonic - exemplos praticos</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; margin: 0; background: #020617; color: #e2e8f0; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 32px 20px 64px; }
+    header, section { background: #0f172acc; border: 1px solid #334155; border-radius: 16px; padding: 24px; margin-bottom: 20px; }
+    pre { overflow: auto; padding: 16px; border-radius: 12px; background: #111827; border: 1px solid #1f2937; color: #cbd5e1; }
+    code { font-family: Consolas, Monaco, monospace; }
+    .tag { display: inline-block; margin: 0 8px 8px 0; padding: 4px 10px; border-radius: 999px; background: rgba(56,189,248,.12); color: #7dd3fc; border: 1px solid rgba(56,189,248,.4); font-size: 12px; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <span class="tag">Flussonic</span>
+      <span class="tag">Categoria</span>
+      <span class="tag">Exemplos</span>
+      <h1>Canal por categoria no Flussonic - exemplos praticos</h1>
+      <p>Categoria exemplo: <strong>ANO NA ESCOLA</strong>, com 10 canais e 5 videos em cada canal.</p>
+    </header>
+    <section>
+      <h2>1) Exemplo completo de <code>flussonic.conf</code></h2>
+      <pre><code>http 80;
+rtmp 1935;
+pulsedb /var/lib/flussonic;
+session_log /var/lib/flussonic;
+edit_auth admin admin;
+
+vod vod {
+  storage /opt/flussonic/priv;
+}</code></pre>
+    </section>
+  </div>
+</body>
+</html>
