@@ -859,7 +859,7 @@ async function checkAndStoreConnectionProfile(
   const stored = (await saveFlussonicConnectionProfile({
     ...profile,
     lastHealth: health
-  })) as unknown as FlussonicConnectionProfile;
+  })) 
 
   return { health, stored };
 }
