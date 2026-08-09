@@ -859,9 +859,9 @@ async function checkAndStoreConnectionProfile(
   const stored = (await saveFlussonicConnectionProfile({
     ...profile,
     lastHealth: health
-  })) 
+  })) as any;
 
-  return { health, stored: stored as any };
+  return { health, stored };
 }
 
 function buildFlussonicListScript(confPath: string): string {
