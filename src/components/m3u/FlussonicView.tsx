@@ -267,7 +267,7 @@ export function FlussonicView({ panelUsername }: { panelUsername: string }) {
                 </li>
                 <li className="flex gap-2">
                   <span className="text-orange-500 font-bold">3.</span>
-                  O arquivo <code>flussonic.conf</code> será atualizado e o serviço recarregado.
+                  O arquivo <code>flussonic.conf</code> será atualizado com <code>input vod://vod/{selectedCat ? selectedCat + '/' : ''}{channelName || 'canal'}.txt</code> e o serviço recarregado.
                 </li>
               </ul>
               <div className="mt-6 p-4 bg-orange-500/5 rounded-xl border border-orange-500/10">
