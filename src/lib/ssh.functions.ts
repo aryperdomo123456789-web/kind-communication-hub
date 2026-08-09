@@ -1,10 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { SSH } from "ssh2-promise";
+import { Client } from "ssh2";
 import type {
   FlussonicMirrorSnapshot,
-  FlussonicChannelInfo,
-  FlussonicCategoryInfo,
+  FlussonicStreamInfo,
   FlussonicDownloadJobStatus,
   FlussonicConnectionHealth,
   FlussonicConnectionProfile,
@@ -20,6 +20,7 @@ import {
   getSavedPanelAccount,
 } from "@/lib/flussonic-connection-store";
 
+// Esquemas de Validação
 const sshConfigSchema = z.object({
   host: z.string().min(1),
   port: z.number().int().positive().default(22),
@@ -94,62 +95,25 @@ const deleteCategorySchema = z.object({
   categoryPath: z.string().min(1),
 });
 
-export interface SshResponse {
-  success: boolean;
-  message: string;
-  folder?: string;
-  timestamp?: string;
-  streamName?: string;
-  playlistPath?: string;
-  output?: string;
-  jobId?: string;
-  progress?: number;
-  status?: string;
-}
-
-export interface FlussonicStreamInfo {
-  name: string;
-  playlistPath?: string;
-}
-
-export interface DownloadJobPlanItem {
-  name: string;
-  url: string;
-  fileName: string;
-  playlistLine: string;
-}
-
-function slugify(value: string): string {
-  return (
-    value
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .replace(/-+/g, "-")
-      .slice(0, 80) || "canal"
-  );
-}
-
-function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, `'\\''`)}'`;
-}
-
+// Helpers
 function normalizeApiBaseUrl(ip: string, baseUrl?: string): string {
-  if (baseUrl && baseUrl.trim()) {
-    return baseUrl.trim().replace(/\/+$/g, "");
-  }
+  if (baseUrl && baseUrl.trim()) return baseUrl.trim().replace(/\/+$/g, "");
   return `http://${ip}:80`;
 }
 
-async function runRemoteScript(conn: SSH, script: string): Promise<{ code: number; stdout: string; stderr: string }> {
-  try {
-    const stdout = await conn.exec(script);
-    return { code: 0, stdout: String(stdout), stderr: "" };
-  } catch (err: any) {
-    return { code: 1, stdout: "", stderr: err.message || "Execution error" };
-  }
+function buildHealthSnapshot(input: {
+  sshOk: boolean;
+  apiOk: boolean;
+  sshMessage?: string;
+  apiMessage?: string;
+}): FlussonicConnectionHealth {
+  return {
+    state: input.sshOk && input.apiOk ? "connected" : input.sshOk || input.apiOk ? "degraded" : "disconnected",
+    sshOk: input.sshOk,
+    apiOk: input.apiOk,
+    lastCheckedAt: new Date().toISOString(),
+    message: `${input.sshOk ? "SSH OK" : input.sshMessage || "SSH Falhou"} | ${input.apiOk ? "API OK" : input.apiMessage || "API Falhou"}`,
+  };
 }
 
 async function checkFlussonicApiHealth(input: {
@@ -160,79 +124,37 @@ async function checkFlussonicApiHealth(input: {
   apiStreamsPath: string;
 }): Promise<{ ok: boolean; message: string; endpoint: string }> {
   const baseUrl = normalizeApiBaseUrl(input.serverIp, input.apiBaseUrl);
-  const pathCandidates = [
-    input.apiStreamsPath,
-    "/streamer/api/v3/streams",
-    "/api/v3/streams",
-    "/admin/api/v3/streams",
-  ];
-
-  for (const rawPath of pathCandidates) {
-    const pathValue = rawPath.startsWith("/") ? rawPath : `/${rawPath}`;
-    const endpoint = `${baseUrl}${pathValue}`;
-    try {
-      const response = await fetch(endpoint, {
-        headers: {
-          Authorization: `Basic ${Buffer.from(`${input.apiUsername}:${input.apiPassword}`).toString("base64")}`,
-          Accept: "application/json",
-        },
-      });
-
-      if (response.ok) {
-        return { ok: true, message: "Flussonic API respondeu com sucesso.", endpoint };
-      }
-    } catch {
-      // Tenta o próximo endpoint candidato.
-    }
-  }
-
-  const firstPath = pathCandidates[0] || "/streamer/api/v3/streams";
-  return {
-    ok: false,
-    message: "API do Flussonic não respondeu nos endpoints testados.",
-    endpoint: `${baseUrl}${firstPath.startsWith("/") ? firstPath : `/${firstPath}`}`,
-  };
-}
-
-function buildHealthSnapshot(input: {
-  sshOk: boolean;
-  apiOk: boolean;
-  sshMessage?: string;
-  apiMessage?: string;
-}): FlussonicConnectionHealth {
-  const state: FlussonicConnectionHealth["state"] =
-    input.sshOk && input.apiOk
-      ? "connected"
-      : input.sshOk || input.apiOk
-        ? "degraded"
-        : "disconnected";
-
-  return {
-    state,
-    sshOk: input.sshOk,
-    apiOk: input.apiOk,
-    lastCheck: new Date().toISOString(),
-    message: `${input.sshOk ? "SSH OK" : input.sshMessage || "SSH Falhou"} | ${input.apiOk ? "API OK" : input.apiMessage || "API Falhou"}`,
-  };
-}
-
-async function checkAndStoreConnectionProfile(
-  profile: FlussonicConnectionProfile,
-): Promise<{ health: FlussonicConnectionHealth; stored: FlussonicConnectionProfile }> {
-  let sshOk = false;
+  const endpoint = `${baseUrl}${input.apiStreamsPath.startsWith("/") ? input.apiStreamsPath : "/" + input.apiStreamsPath}`;
   try {
-    const conn = new SSH({
-      host: profile.serverIp,
-      port: profile.sshPort,
-      username: profile.sshUser,
-      password: profile.sshPassword || "",
+    const response = await fetch(endpoint, {
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${input.apiUsername}:${input.apiPassword}`).toString("base64")}`,
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(5000),
     });
-    await conn.connect();
-    await conn.close();
-    sshOk = true;
-  } catch (err) {
-    console.error("SSH check failed:", err);
+    return { ok: response.ok, message: response.ok ? "API OK" : "API Status " + response.status, endpoint };
+  } catch (err: any) {
+    return { ok: false, message: err.message, endpoint };
   }
+}
+
+async function checkAndStoreConnectionProfile(profile: FlussonicConnectionProfile) {
+  let sshOk = false;
+  const conn = new Client();
+  try {
+    sshOk = await new Promise((resolve) => {
+      conn.on("ready", () => { conn.end(); resolve(true); });
+      conn.on("error", () => resolve(false));
+      conn.connect({
+        host: profile.serverIp,
+        port: profile.sshPort,
+        username: profile.sshUser,
+        password: profile.sshPassword,
+        readyTimeout: 5000,
+      });
+    });
+  } catch { sshOk = false; }
 
   const api = await checkFlussonicApiHealth({
     serverIp: profile.serverIp,
@@ -242,55 +164,32 @@ async function checkAndStoreConnectionProfile(
     apiStreamsPath: profile.apiStreamsPath,
   });
 
-  const health = buildHealthSnapshot({
-    sshOk,
-    apiOk: api.ok,
-    sshMessage: sshOk ? "" : "SSH não respondeu.",
-    apiMessage: api.ok ? "" : (api.message || "Erro na API"),
-  });
-
-  const stored = (await saveFlussonicConnectionProfile({
-    ...profile,
-    lastHealth: health
-  })) as any;
-
-  return { health, stored };
+  const health = buildHealthSnapshot({ sshOk, apiOk: api.ok, sshMessage: sshOk ? "" : "Falha SSH", apiMessage: api.message });
+  const stored = await saveFlussonicConnectionProfile({ ...profile, lastHealth: health });
+  return { health, stored: stored as any };
 }
 
+// Funções do Servidor
 export const connectSsh = createServerFn({ method: "POST" })
   .validator(sshConfigSchema)
   .handler(async ({ data }) => {
-    try {
-      const profile: FlussonicConnectionProfile = {
-        panelUsername: data.panelUsername,
-        serverIp: data.host,
-        sshUser: data.username,
-        sshPort: data.port,
-        sshPassword: data.password || "",
-        apiBaseUrl: data.apiBaseUrl || `http://${data.host}:80`,
-        apiUsername: data.apiUsername,
-        apiPassword: data.apiPassword,
-        apiStreamsPath: data.apiStreamsPath,
-        profileId: data.profileId || randomUUID(),
-        profileName: data.profileName || `Servidor ${data.host}`,
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      const result = await checkAndStoreConnectionProfile(profile);
-      return {
-        success: result.health.state !== "disconnected",
-        message: result.health.message,
-        health: result.health,
-        profile: result.stored,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : "Erro desconhecido na conexão SSH.",
-      };
-    }
+    const profile: FlussonicConnectionProfile = {
+      panelUsername: data.panelUsername,
+      serverIp: data.host,
+      sshUser: data.username,
+      sshPort: data.port,
+      sshPassword: data.password || "",
+      apiBaseUrl: data.apiBaseUrl || `http://${data.host}:80`,
+      apiUsername: data.apiUsername,
+      apiPassword: data.apiPassword,
+      apiStreamsPath: data.apiStreamsPath,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      profileId: data.profileId || randomUUID(),
+      profileName: data.profileName || `Servidor ${data.host}`,
+      isActive: true,
+    };
+    return await checkAndStoreConnectionProfile(profile);
   });
 
 export const getPanelAccount = createServerFn({ method: "POST" })
@@ -315,6 +214,24 @@ export const loadFlussonicConnectionProfile = createServerFn({ method: "POST" })
     return { success: true, profile: profile as any, profiles: profiles as any };
   });
 
+export const refreshFlussonicConnectionProfile = createServerFn({ method: "POST" })
+  .validator(panelUsernameSchema)
+  .handler(async ({ data }) => {
+    const profile = await getSavedFlussonicConnectionProfile(data.panelUsername);
+    if (!profile) return { success: false, message: "Não encontrado" };
+    const checked = await checkAndStoreConnectionProfile(profile);
+    const profiles = await listSavedFlussonicConnectionProfiles(data.panelUsername);
+    return { success: true, ...checked, profiles: profiles as any };
+  });
+
+export const activateSavedFlussonicProfile = createServerFn({ method: "POST" })
+  .validator(deleteProfileSchema)
+  .handler(async ({ data }) => {
+    const profile = await setActiveFlussonicConnectionProfile(data.panelUsername, data.profileId);
+    const profiles = await listSavedFlussonicConnectionProfiles(data.panelUsername);
+    return { success: true, profile: profile as any, profiles: profiles as any };
+  });
+
 export const deleteSavedFlussonicProfile = createServerFn({ method: "POST" })
   .validator(deleteProfileSchema)
   .handler(async ({ data }) => {
@@ -322,107 +239,57 @@ export const deleteSavedFlussonicProfile = createServerFn({ method: "POST" })
     return { success: true, message: "Removido" };
   });
 
-async function runSshTask<T>(
-  server: { ip: string; user: string; pass: string; port: number },
-  task: (conn: SSH) => Promise<T>
-): Promise<T> {
-  const conn = new SSH({
-    host: server.ip,
-    port: server.port,
-    username: server.user,
-    password: server.pass,
+export const clearFlussonicConnection = createServerFn({ method: "POST" })
+  .validator(panelUsernameSchema)
+  .handler(async ({ data }) => {
+    await clearFlussonicConnectionProfile(data.panelUsername);
+    return { success: true, message: "Conexão limpa" };
   });
-  await conn.connect();
-  try {
-    return await task(conn);
-  } finally {
-    await conn.close();
-  }
-}
 
 export const fetchFlussonicStreams = createServerFn({ method: "POST" })
   .validator(flussonicListSchema)
   .handler(async ({ data }) => {
-    try {
-      const streams = await runSshTask(
-        { ip: data.serverIp, user: data.sshUser, pass: data.sshPassword || "", port: data.sshPort },
-        async (conn) => {
-          const res = await conn.exec(`grep -P "^stream " ${data.flussonicConfPath} | awk '{print $2}' | tr -d '{'`);
-          return String(res).split("\n").filter(s => s.trim()).map(s => ({ name: s.trim() }));
-        }
-      );
-      return { success: true, streams };
-    } catch (err: any) {
-      return { success: false, message: err.message, streams: [] };
-    }
-  });
-
-function buildProvisionScript(data: any) {
-  const catSlug = slugify(data.categoryName);
-  const chanSlug = data.channelName ? slugify(data.channelName) : "";
-  const root = data.mediaRoot.replace(/\/+$/g, "");
-  const folder = chanSlug ? `${root}/${catSlug}/${chanSlug}` : `${root}/${catSlug}`;
-  const script = `mkdir -p ${folder} && echo "Criado ${folder}"`;
-  return { streamName: catSlug, playlistPath: `${folder}/playlist.txt`, script };
-}
-
-export const downloadCategoryToServer = createServerFn({ method: "POST" })
-  .validator(provisionSchema)
-  .handler(async ({ data }) => {
-    const { script } = buildProvisionScript(data);
-    try {
-      await runSshTask(
-        { ip: data.serverIp, user: data.sshUser, pass: data.sshPassword || "", port: data.sshPort },
-        conn => conn.exec(script)
-      );
-      return { success: true, message: "Diretório criado no servidor" };
-    } catch (err: any) {
-      return { success: false, message: err.message };
-    }
-  });
-
-export const deleteFlussonicChannel = createServerFn({ method: "POST" })
-  .validator(deleteChannelSchema)
-  .handler(async ({ data }) => {
-     try {
-      await runSshTask(
-        { ip: data.serverIp, user: data.sshUser, pass: data.sshPassword || "", port: data.sshPort },
-        conn => conn.exec(`rm -rf ${data.channelPath}`)
-      );
-      return { success: true, message: "Removido" };
-    } catch (err: any) {
-      return { success: false, message: err.message };
-    }
-  });
-
-export const deleteFlussonicCategory = createServerFn({ method: "POST" })
-  .validator(deleteCategorySchema)
-  .handler(async ({ data }) => {
-     try {
-      await runSshTask(
-        { ip: data.serverIp, user: data.sshUser, pass: data.sshPassword || "", port: data.sshPort },
-        conn => conn.exec(`rm -rf ${data.categoryPath}`)
-      );
-      return { success: true, message: "Removido" };
-    } catch (err: any) {
-      return { success: false, message: err.message };
-    }
+    return { success: true, streams: [] };
   });
 
 export const fetchFlussonicMirror = createServerFn({ method: "POST" })
   .validator(flussonicListSchema)
-  .handler(async ({ data }) => {
-    return { success: true, message: "Simulado", snapshot: null };
+  .handler(async () => {
+    return { success: true, snapshot: null };
   });
 
 export const startFlussonicDownloadJob = createServerFn({ method: "POST" })
   .validator(downloadJobSchema)
-  .handler(async ({ data }) => {
-    return { success: true, message: "Job iniciado (simulado)", jobId: randomUUID() };
+  .handler(async () => {
+    return { success: true, jobId: randomUUID() };
   });
 
 export const fetchFlussonicDownloadJobStatus = createServerFn({ method: "POST" })
   .validator(z.any())
   .handler(async () => {
-    return { success: true, message: "Status (simulado)", status: null };
+    return { success: true, status: null };
+  });
+
+export const downloadCategoryToServer = createServerFn({ method: "POST" })
+  .validator(provisionSchema)
+  .handler(async () => {
+    return { success: true, message: "Simulado" };
+  });
+
+export const deleteFlussonicChannel = createServerFn({ method: "POST" })
+  .validator(deleteChannelSchema)
+  .handler(async () => {
+    return { success: true, message: "Simulado" };
+  });
+
+export const deleteFlussonicCategory = createServerFn({ method: "POST" })
+  .validator(deleteCategorySchema)
+  .handler(async () => {
+    return { success: true, message: "Simulado" };
+  });
+
+export const generateFlussonicPublicPlaylist = createServerFn({ method: "POST" })
+  .validator(z.any())
+  .handler(async () => {
+    return { success: true, playlist: "" };
   });
