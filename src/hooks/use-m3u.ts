@@ -13,7 +13,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { loadPanelAccount, savePanelAccountFn } from "@/lib/ssh.functions";
 import { readLocalStorageJSON, writeLocalStorageJSON, writeLocalStorageValue } from "@/lib/storage";
 
-export type ViewType = "movies" | "series" | "live" | "custom" | "settings" | "server" | "account";
+export type ViewType = "movies" | "series" | "live" | "custom" | "settings" | "server" | "account" | "flussonic";
 export type ContentView = "movies" | "series" | "live";
 
 const DEFAULT_M3U_LIST = {
@@ -129,11 +129,7 @@ export function useM3U() {
 
     const hydratePanelAccount = async () => {
       try {
-        const result = (await loadPanelAccountFn()) as {
-          success: boolean;
-          message: string;
-          account: PanelAccount;
-        };
+        const result = (await loadPanelAccountFn({ data: { panelUsername: panelAccount.username } })) as any;
 
         if (!mounted || !result.success || !result.account) return;
 

@@ -23,15 +23,14 @@ import {
   deleteFlussonicCategory,
   deleteFlussonicChannel,
   deleteSavedFlussonicProfile,
-  fetchFlussonicApiStreams,
-  fetchFlussonicDownloadJobStatus,
   fetchFlussonicMirror,
   fetchFlussonicStreams,
   generateFlussonicPublicPlaylist,
   loadFlussonicConnectionProfile,
   refreshFlussonicConnectionProfile,
   startFlussonicDownloadJob,
-  validateSshConnection,
+  fetchFlussonicDownloadJobStatus,
+  connectSsh as validateSshConnection,
   type SshResponse,
 } from "@/lib/ssh.functions";
 import {
@@ -122,7 +121,7 @@ export function ServerView({
   const deleteCategoryFn = useServerFn(deleteFlussonicCategory);
   const startJobFn = useServerFn(startFlussonicDownloadJob);
   const readJobStatusFn = useServerFn(fetchFlussonicDownloadJobStatus);
-  const apiStreamsFn = useServerFn(fetchFlussonicApiStreams);
+  const apiStreamsFn = useServerFn(fetchFlussonicStreams);
   const publicPlaylistFn = useServerFn(generateFlussonicPublicPlaylist);
   const loadProfileFn = useServerFn(loadFlussonicConnectionProfile);
   const refreshProfileFn = useServerFn(refreshFlussonicConnectionProfile);
@@ -219,7 +218,7 @@ service flussonic reload`;
             sshPort: nextSshPort,
             flussonicConfPath: "/etc/flussonic/flussonic.conf",
           },
-        })) as { success: boolean; message: string; streams: FlussonicStreamInfo[] };
+        })) as any;
 
         if (result.success) {
           onFlussonicStreamsChange(result.streams);
@@ -424,7 +423,7 @@ service flussonic reload`;
           host: nextServerIp,
           port: nextSshPort,
           username: nextSshUser,
-          password: nextSshPassword,
+          password: nextSshPassword || '',
           panelUsername,
           apiBaseUrl: nextApiBaseUrl,
           apiUsername: nextApiUsername,
@@ -494,7 +493,7 @@ service flussonic reload`;
           apiPassword,
           apiStreamsPath,
         },
-      })) as { success: boolean; message: string; endpoint: string; streams: string[] };
+      })) as any;
 
       if (!result.success) {
         alert(result.message);
@@ -623,7 +622,7 @@ service flussonic reload`;
           sshPassword,
           sshPort: parseInt(sshPort),
           categoryName,
-          items: customCategories[categoryName],
+          items: (customCategories[categoryName] || []).map(item => ({ name: item.name, url: item.url })),
           concurrency: 3,
         },
       })) as SshResponse;
@@ -640,7 +639,7 @@ service flussonic reload`;
           completedItems: 0,
           failedItems: 0,
           percent: 0,
-          items: customCategories[categoryName].map((item, index) => ({
+          items: (customCategories[categoryName] || []).map(item => ({ name: item.name, url: item.url })).map((item, index) => ({
             name: item.name,
             fileName: `${String(index + 1).padStart(3, "0")}-${item.name}`,
             url: item.url,

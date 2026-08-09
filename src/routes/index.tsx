@@ -11,6 +11,7 @@ import { AccountView } from "@/components/m3u/AccountView";
 import { LoginView } from "@/components/m3u/LoginView";
 import { Search, Menu, X, Server } from "lucide-react";
 import { ServerView } from "@/components/m3u/ServerView";
+import { FlussonicView } from "@/components/m3u/FlussonicView";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export const Route = createFileRoute("/")({
@@ -227,7 +228,8 @@ function Index() {
                 onProcess={handleProcess}
               />
             ) : activeView === "custom" ? (
-              <CustomCategoriesView
+               <CustomCategoriesView
+                panelUsername={panelAccount.username}
                 categories={customCategories}
                 flussonicStreams={flussonicStreams}
                 onDeleteCategory={deleteCustomCategory}
@@ -241,6 +243,8 @@ function Index() {
                 flussonicMirror={flussonicMirror}
                 onFlussonicMirrorChange={setFlussonicMirror}
               />
+            ) : activeView === "flussonic" ? (
+              <FlussonicView panelUsername={panelAccount.username} />
             ) : activeView === "account" ? (
               <AccountView account={panelAccount} setAccount={setPanelAccount} />
             ) : (
