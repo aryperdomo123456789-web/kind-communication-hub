@@ -150,7 +150,7 @@ function inferExtension(url: string): string {
   try {
     const pathname = new URL(url).pathname;
     const match = pathname.match(/\.([a-z0-9]{1,5})$/i);
-    return match ? `.${match[1].toLowerCase()}` : ".mp4";
+    return match && match[1] ? `.${match[1].toLowerCase()}` : ".mp4";
   } catch {
     return ".mp4";
   }
