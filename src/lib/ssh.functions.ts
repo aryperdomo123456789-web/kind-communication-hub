@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { existsSync, readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { Client } from "ssh2";
+import { SSH } from "ssh2-promise";
 import type {
   FlussonicMirrorSnapshot,
   FlussonicChannelInfo,
