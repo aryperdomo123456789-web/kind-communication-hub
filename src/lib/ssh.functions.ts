@@ -200,9 +200,9 @@ function buildDownloadJobPlan(input: z.infer<typeof downloadJobSchema>): {
 
   const items = input.items.map((item, index) => {
     const extension = inferExtension(item.url);
-    const fileName = sanitizeFileName(item.name, index, extension);
+    const fileName = sanitizeFileName(item['name'], index, extension);
     return {
-      name: item.name,
+      name: item['name'],
       url: item.url,
       fileName,
       playlistLine: `${playlistPrefix}/${fileName}`,
@@ -234,7 +234,7 @@ function buildProvisionScript(input: z.infer<typeof provisionSchema>): {
   const downloadSteps = input.items
     .map((item, index) => {
       const extension = inferExtension(item.url);
-      const fileName = sanitizeFileName(item.name, index, extension);
+      const fileName = sanitizeFileName(item['name'], index, extension);
       const filePath = `${folder}/${fileName}`;
       const playlistLine = `${playlistVodPrefix}/${fileName}`;
 
@@ -547,7 +547,7 @@ export CONF_PATH=${shellQuote(input.flussonicConfPath)}
 export MEDIA_ROOT=${shellQuote(input.mediaRoot.replace(/\/+$/g, ""))}
 export FOLDER=${shellQuote(plan.folder)}
 export PLAYLIST_PATH=${shellQuote(plan.playlistPath)}
-export STREAM_NAME=${shellQuote(plan.streamName)}
+export STREAM_NAME=${shellQuote(plan['streamName'])}
 export CATEGORY_NAME=${shellQuote(input.categoryName)}
 export CHANNEL_NAME=${shellQuote(input.channelName || "")}
 export RELOAD_FLUSSONIC=${shellQuote(reloadFlag)}
@@ -566,7 +566,7 @@ printf '%s\\n' ${shellQuote(plan.jobId)}
 
   return {
     jobId: plan.jobId,
-    streamName: plan.streamName,
+    streamName: plan['streamName'],
     playlistPath: plan.playlistPath,
     folder: plan.folder,
     script,
@@ -653,7 +653,7 @@ function extractStreamNamesFromApiPayload(payload: unknown): string[] {
     if (typeof value !== "object") return;
 
     const record = value as Record<string, unknown>;
-    const candidates = [record.name, record.streamName, record.title, record.id];
+    const candidates = [record['name'], record['streamName'], record['title'], record['id']];
     for (const candidate of candidates) {
       if (typeof candidate === "string" && candidate.trim()) {
         names.add(candidate.trim());
@@ -668,7 +668,7 @@ function extractStreamNamesFromApiPayload(payload: unknown): string[] {
   };
 
   visit(payload);
-  return [...names].sort((a, b) => a.localeCompare(b));
+  return [..['name']s].sort((a, b) => a.localeCompare(b));
 }
 
 async function fetchFlussonicApiStreamsList(input: z.infer<typeof flussonicApiSchema>): Promise<{
@@ -1199,19 +1199,19 @@ stream_map = {s["playlistPath"]: s["name"] for s in streams if s.get("playlistPa
 orphan_streams = [s for s in streams if not s.get("playlistPath")]
 
 if root.exists():
-    for category_dir in sorted([p for p in root.iterdir() if p.is_dir()], key=lambda p: p.name.lower()):
+    for category_dir in sorted([p for p in root.iterdir() if p.is_dir()], key=lambda p: p['name'].lower()):
         channel_entries = []
         total_files = 0
-        subdirs = sorted([p for p in category_dir.iterdir() if p.is_dir()], key=lambda p: p.name.lower())
+        subdirs = sorted([p for p in category_dir.iterdir() if p.is_dir()], key=lambda p: p['name'].lower())
         if subdirs:
             for channel_dir in subdirs:
-                media_files = sorted([f.name for f in channel_dir.iterdir() if f.is_file() and f.suffix.lower() in {".mp4", ".mkv", ".ts", ".m3u8"}])
+                media_files = sorted([f['name'] for f in channel_dir.iterdir() if f.is_file() and f.suffix.lower() in {".mp4", ".mkv", ".ts", ".m3u8"}])
                 playlist = channel_dir / "playlist.txt"
                 total_files += len(media_files)
                 relative_playlist = str(playlist.relative_to(root)) if playlist.exists() else None
-                stream_name = stream_map.get(str(playlist)) or stream_map.get(str(playlist).replace("\\\\", "/")) or channel_dir.name
+                stream_name = stream_map.get(str(playlist)) or stream_map.get(str(playlist).replace("\\\\", "/")) or channel_dir['name']
                 channel_entries.append({
-                    "name": channel_dir.name,
+                    "name": channel_dir['name'],
                     "streamName": stream_name,
                     "playlistPath": str(playlist) if playlist.exists() else None,
                     "folderPath": str(channel_dir),
@@ -1219,13 +1219,13 @@ if root.exists():
                     "mediaCount": len(media_files),
                 })
         else:
-            media_files = sorted([f.name for f in category_dir.iterdir() if f.is_file() and f.suffix.lower() in {".mp4", ".mkv", ".ts", ".m3u8"}])
+            media_files = sorted([f['name'] for f in category_dir.iterdir() if f.is_file() and f.suffix.lower() in {".mp4", ".mkv", ".ts", ".m3u8"}])
             playlist = category_dir / "playlist.txt"
             if media_files or playlist.exists():
                 total_files += len(media_files)
-                stream_name = stream_map.get(str(playlist)) or category_dir.name
+                stream_name = stream_map.get(str(playlist)) or category_dir['name']
                 channel_entries.append({
-                    "name": category_dir.name,
+                    "name": category_dir['name'],
                     "streamName": stream_name,
                     "playlistPath": str(playlist) if playlist.exists() else None,
                     "folderPath": str(category_dir),
@@ -1234,7 +1234,7 @@ if root.exists():
                 })
 
         categories.append({
-            "name": category_dir.name,
+            "name": category_dir['name'],
             "path": str(category_dir),
             "channels": channel_entries,
             "fileCount": total_files,
@@ -1461,7 +1461,7 @@ export const startFlussonicDownloadJob = createServerFn({ method: "POST" })
               success: true,
               message: "Fila de download iniciada com sucesso.",
               jobId: plan.jobId,
-              streamName: plan.streamName,
+              streamName: plan['streamName'],
               playlistPath: plan.playlistPath,
               folder: plan.folder,
               output: result.stdout.trim(),
@@ -1650,7 +1650,7 @@ export const deleteFlussonicChannel = createServerFn({ method: "POST" })
       confPath: data.flussonicConfPath,
       targetPath: data.channelPath,
       targetPlaylist: data.playlistPath,
-      targetStreamName: data.streamName,
+      targetStreamName: data['streamName'],
       removeRootOnly: false,
     });
 

@@ -424,7 +424,7 @@ service flussonic reload`;
           host: nextServerIp,
           port: nextSshPort,
           username: nextSshUser,
-          password: nextSshPassword,
+          password: nextSshPassword || '',
           panelUsername,
           apiBaseUrl: nextApiBaseUrl,
           apiUsername: nextApiUsername,
