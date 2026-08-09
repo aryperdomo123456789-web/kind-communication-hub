@@ -23,9 +23,11 @@ import {
   deleteFlussonicCategory,
   deleteFlussonicChannel,
   deleteSavedFlussonicProfile,
+  fetchFlussonicApiStreams,
   fetchFlussonicDownloadJobStatus,
   fetchFlussonicMirror,
   fetchFlussonicStreams,
+  generateFlussonicPublicPlaylist,
   loadFlussonicConnectionProfile,
   refreshFlussonicConnectionProfile,
   startFlussonicDownloadJob,
@@ -80,6 +82,22 @@ export function ServerView({
     if (typeof window === "undefined") return "";
     return localStorage.getItem("mago_flussonic_ssh_password") || "";
   });
+  const [apiBaseUrl, setApiBaseUrl] = useState(() => {
+    if (typeof window === "undefined") return "http://173.208.244.141";
+    return localStorage.getItem("mago_flussonic_api_base_url") || "http://173.208.244.141";
+  });
+  const [apiUsername, setApiUsername] = useState(() => {
+    if (typeof window === "undefined") return "admin";
+    return localStorage.getItem("mago_flussonic_api_username") || "admin";
+  });
+  const [apiPassword, setApiPassword] = useState(() => {
+    if (typeof window === "undefined") return "admin";
+    return localStorage.getItem("mago_flussonic_api_password") || "admin";
+  });
+  const [apiStreamsPath, setApiStreamsPath] = useState(() => {
+    if (typeof window === "undefined") return "/streamer/api/v3/streams";
+    return localStorage.getItem("mago_flussonic_api_streams_path") || "/streamer/api/v3/streams";
+  });
   const [sshStatus, setSshStatus] = useState<"disconnected" | "connecting" | "connected">(
     "disconnected",
   );
@@ -87,10 +105,16 @@ export function ServerView({
   const [downloadingCategory, setDownloadingCategory] = useState<string | null>(null);
   const [loadingStreams, setLoadingStreams] = useState(false);
   const [loadingMirror, setLoadingMirror] = useState(false);
+  const [loadingApiStreams, setLoadingApiStreams] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [playlistCopied, setPlaylistCopied] = useState(false);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [downloadJob, setDownloadJob] = useState<FlussonicDownloadJobStatus | null>(null);
   const [jobInProgress, setJobInProgress] = useState(false);
+  const [apiStreamsEndpoint, setApiStreamsEndpoint] = useState("");
+  const [apiStreams, setApiStreams] = useState<string[]>([]);
+  const [publicPlaylist, setPublicPlaylist] = useState("");
+  const [publicPlaylistEndpoint, setPublicPlaylistEndpoint] = useState("");
   const jobPollRef = useRef<number | null>(null);
   const syncFn = useServerFn(fetchFlussonicStreams);
   const mirrorFn = useServerFn(fetchFlussonicMirror);
@@ -98,6 +122,8 @@ export function ServerView({
   const deleteCategoryFn = useServerFn(deleteFlussonicCategory);
   const startJobFn = useServerFn(startFlussonicDownloadJob);
   const readJobStatusFn = useServerFn(fetchFlussonicDownloadJobStatus);
+  const apiStreamsFn = useServerFn(fetchFlussonicApiStreams);
+  const publicPlaylistFn = useServerFn(generateFlussonicPublicPlaylist);
   const loadProfileFn = useServerFn(loadFlussonicConnectionProfile);
   const refreshProfileFn = useServerFn(refreshFlussonicConnectionProfile);
   const deleteProfileFn = useServerFn(deleteSavedFlussonicProfile);
@@ -126,15 +152,23 @@ service flussonic reload`;
       const nextSshUser = profileOverride?.sshUser ?? sshUser;
       const nextSshPassword = profileOverride?.sshPassword ?? sshPassword;
       const nextSshPort = profileOverride?.sshPort ?? parseInt(sshPort);
+      const nextApiBaseUrl = profileOverride?.apiBaseUrl ?? apiBaseUrl;
+      const nextApiUsername = profileOverride?.apiUsername ?? apiUsername;
+      const nextApiPassword = profileOverride?.apiPassword ?? apiPassword;
+      const nextApiStreamsPath = profileOverride?.apiStreamsPath ?? apiStreamsPath;
 
       return {
         serverIp: nextServerIp,
         sshUser: nextSshUser,
         sshPassword: nextSshPassword,
         sshPort: nextSshPort,
+        apiBaseUrl: nextApiBaseUrl,
+        apiUsername: nextApiUsername,
+        apiPassword: nextApiPassword,
+        apiStreamsPath: nextApiStreamsPath,
       };
     },
-    [serverIp, sshPassword, sshPort, sshUser],
+    [apiBaseUrl, apiPassword, apiStreamsPath, apiUsername, serverIp, sshPassword, sshPort, sshUser],
   );
 
   const persistConnectionSnapshot = useCallback(
@@ -154,30 +188,15 @@ service flussonic reload`;
     [],
   );
 
-  const syncMirrorAndStreams = useCallback(
-    async (profileOverride?: Partial<FlussonicConnectionProfile>) => {
-      await loadFlussonicMirror(profileOverride);
-      await loadFlussonicStreams(profileOverride);
-    },
-    [loadFlussonicMirror, loadFlussonicStreams],
-  );
-
-  const refreshMirrorAfterMutation = useCallback(
-    async (contextLabel: string) => {
-      try {
-        await syncMirrorAndStreams();
-      } catch (error) {
-        console.warn(`Falha ao atualizar o espelho após ${contextLabel}:`, error);
-      }
-    },
-    [syncMirrorAndStreams],
-  );
-
   const applyProfileToForm = (profile: FlussonicConnectionProfile) => {
     setServerIp(profile.serverIp);
     setSshUser(profile.sshUser);
     setSshPort(String(profile.sshPort));
     setSshPassword(profile.sshPassword || "");
+    setApiBaseUrl(profile.apiBaseUrl || `http://${profile.serverIp}`);
+    setApiUsername(profile.apiUsername || "admin");
+    setApiPassword(profile.apiPassword || "admin");
+    setApiStreamsPath(profile.apiStreamsPath || "/streamer/api/v3/streams");
     setConnectionHealth(profile.lastHealth ?? null);
     setSshStatus(profile.lastHealth?.sshOk ? "connected" : "disconnected");
   };
@@ -253,13 +272,47 @@ service flussonic reload`;
     [getConnectionConfig, mirrorFn, onFlussonicMirrorChange, onFlussonicStreamsChange],
   );
 
+  const syncMirrorAndStreams = useCallback(
+    async (profileOverride?: Partial<FlussonicConnectionProfile>) => {
+      await loadFlussonicMirror(profileOverride);
+      await loadFlussonicStreams(profileOverride);
+    },
+    [loadFlussonicMirror, loadFlussonicStreams],
+  );
+
+  const refreshMirrorAfterMutation = useCallback(
+    async (contextLabel: string) => {
+      try {
+        await syncMirrorAndStreams();
+      } catch (error) {
+        console.warn(`Falha ao atualizar o espelho após ${contextLabel}:`, error);
+      }
+    },
+    [syncMirrorAndStreams],
+  );
+
+  const reconcileMirrorAfterFailedMutation = useCallback(
+    async (contextLabel: string) => {
+      try {
+        await syncMirrorAndStreams();
+      } catch (error) {
+        console.warn(`Falha ao reconciliar o espelho após ${contextLabel}:`, error);
+      }
+    },
+    [syncMirrorAndStreams],
+  );
+
   useEffect(() => {
     localStorage.setItem("mago_flussonic_server_ip", serverIp);
     localStorage.setItem("mago_flussonic_profile_name", profileName);
     localStorage.setItem("mago_flussonic_ssh_user", sshUser);
     localStorage.setItem("mago_flussonic_ssh_port", sshPort);
     localStorage.setItem("mago_flussonic_ssh_password", sshPassword);
-  }, [serverIp, profileName, sshUser, sshPort, sshPassword]);
+    localStorage.setItem("mago_flussonic_api_base_url", apiBaseUrl);
+    localStorage.setItem("mago_flussonic_api_username", apiUsername);
+    localStorage.setItem("mago_flussonic_api_password", apiPassword);
+    localStorage.setItem("mago_flussonic_api_streams_path", apiStreamsPath);
+  }, [apiBaseUrl, apiPassword, apiStreamsPath, apiUsername, serverIp, profileName, sshUser, sshPort, sshPassword]);
 
   useEffect(() => {
     try {
@@ -271,12 +324,20 @@ service flussonic reload`;
         sshUser?: string;
         sshPort?: string;
         sshPassword?: string;
+        apiBaseUrl?: string;
+        apiUsername?: string;
+        apiPassword?: string;
+        apiStreamsPath?: string;
       };
 
       if (parsed.serverIp) setServerIp(parsed.serverIp);
       if (parsed.sshUser) setSshUser(parsed.sshUser);
       if (parsed.sshPort) setSshPort(parsed.sshPort);
       if (parsed.sshPassword !== undefined) setSshPassword(parsed.sshPassword);
+      if (parsed.apiBaseUrl) setApiBaseUrl(parsed.apiBaseUrl);
+      if (parsed.apiUsername) setApiUsername(parsed.apiUsername);
+      if (parsed.apiPassword !== undefined) setApiPassword(parsed.apiPassword);
+      if (parsed.apiStreamsPath) setApiStreamsPath(parsed.apiStreamsPath);
     } catch {
       // Mantém os valores atuais se o cache salvo estiver inválido.
     }
@@ -350,10 +411,10 @@ service flussonic reload`;
       sshPassword: nextSshPassword,
       sshPort: nextSshPort,
     } = getConnectionConfig(profileOverride);
-    const nextApiBaseUrl = profileOverride?.apiBaseUrl ?? `http://${nextServerIp}`;
-    const nextApiUsername = profileOverride?.apiUsername ?? "admin";
-    const nextApiPassword = profileOverride?.apiPassword ?? "admin";
-    const nextApiStreamsPath = profileOverride?.apiStreamsPath ?? "/streamer/api/v3/streams";
+    const nextApiBaseUrl = (profileOverride?.apiBaseUrl ?? apiBaseUrl?.trim()) || `http://${nextServerIp}`;
+    const nextApiUsername = profileOverride?.apiUsername ?? apiUsername;
+    const nextApiPassword = profileOverride?.apiPassword ?? apiPassword;
+    const nextApiStreamsPath = profileOverride?.apiStreamsPath ?? apiStreamsPath;
     const nextProfileId = profileOverride?.profileId ?? selectedProfileId ?? undefined;
     const nextProfileName = profileOverride?.profileName ?? (profileName.trim() || nextServerIp);
 
@@ -372,20 +433,18 @@ service flussonic reload`;
           profileId: nextProfileId,
           profileName: nextProfileName,
         },
-      })) as SshResponse;
+      })) as {
+        success: boolean;
+        message: string;
+        health: FlussonicConnectionHealth | null;
+        profile: FlussonicConnectionProfile | null;
+        profiles: FlussonicConnectionProfile[];
+      };
 
       if (result.success) {
-        const refreshed = (await refreshProfileFn({
-          data: { panelUsername },
-        })) as {
-          success: boolean;
-          message: string;
-          profile: FlussonicConnectionProfile | null;
-          health: FlussonicConnectionHealth | null;
-          profiles: FlussonicConnectionProfile[];
-        };
+        const refreshed = result;
 
-        if (refreshed.success && refreshed.profile) {
+        if (refreshed.profile) {
           applyProfileToForm(refreshed.profile);
           setSavedProfiles(refreshed.profiles ?? []);
           setSelectedProfileId(refreshed.profile.profileId ?? null);
@@ -406,7 +465,11 @@ service flussonic reload`;
           apiStreamsPath: nextApiStreamsPath,
           lastConnectedAt: refreshed.health?.lastCheckedAt || new Date().toISOString(),
         });
-        await syncMirrorAndStreams(refreshed.profile ?? profileOverride);
+        try {
+          await syncMirrorAndStreams(refreshed.profile ?? profileOverride);
+        } catch (syncError) {
+          console.warn("Falha ao sincronizar espelho após conexão:", syncError);
+        }
       } else {
         localStorage.setItem("mago_flussonic_auto_connect", "0");
         if (!silent) alert("Falha na conexão: " + result.message);
@@ -418,6 +481,93 @@ service flussonic reload`;
       if (!silent) alert("Erro ao tentar conectar via SSH. Verifique se os dados estão corretos.");
       setSshStatus("disconnected");
     }
+  };
+
+  const handleLoadApiStreams = async () => {
+    setLoadingApiStreams(true);
+    try {
+      const result = (await apiStreamsFn({
+        data: {
+          serverIp,
+          apiBaseUrl,
+          apiUsername,
+          apiPassword,
+          apiStreamsPath,
+        },
+      })) as { success: boolean; message: string; endpoint: string; streams: string[] };
+
+      if (!result.success) {
+        alert(result.message);
+        return;
+      }
+
+      setApiStreamsEndpoint(result.endpoint);
+      setApiStreams(result.streams);
+      setPublicPlaylist("");
+      setPublicPlaylistEndpoint("");
+      alert(result.message);
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao consultar a API do Flussonic.");
+    } finally {
+      setLoadingApiStreams(false);
+    }
+  };
+
+  const handleGeneratePublicPlaylist = async () => {
+    setLoadingApiStreams(true);
+    try {
+      const result = (await publicPlaylistFn({
+        data: {
+          serverIp,
+          apiBaseUrl,
+          apiUsername,
+          apiPassword,
+          apiStreamsPath,
+          preferredPlaybackPath: "/index.m3u8",
+        },
+      })) as {
+        success: boolean;
+        message: string;
+        endpoint: string;
+        playlist: string;
+        streams: string[];
+      };
+
+      if (!result.success) {
+        alert(result.message);
+        return;
+      }
+
+      setApiStreamsEndpoint(result.endpoint);
+      setApiStreams(result.streams);
+      setPublicPlaylist(result.playlist);
+      setPublicPlaylistEndpoint(result.endpoint);
+      alert(result.message);
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao gerar a playlist pública do Flussonic.");
+    } finally {
+      setLoadingApiStreams(false);
+    }
+  };
+
+  const handleCopyPublicPlaylist = async () => {
+    if (!publicPlaylist) return;
+    await navigator.clipboard.writeText(publicPlaylist);
+    setPlaylistCopied(true);
+    setTimeout(() => setPlaylistCopied(false), 2000);
+  };
+
+  const handleDownloadPublicPlaylist = () => {
+    if (!publicPlaylist) return;
+    const blob = new Blob([publicPlaylist], { type: "audio/x-mpegurl" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "flussonic-public-playlist.m3u";
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
 
   useEffect(() => {
@@ -628,8 +778,16 @@ service flussonic reload`;
     setSshUser("root");
     setSshPort("22");
     setSshPassword("");
+    setApiBaseUrl("http://173.208.244.141");
+    setApiUsername("admin");
+    setApiPassword("admin");
+    setApiStreamsPath("/streamer/api/v3/streams");
     setConnectionHealth(null);
     setSshStatus("disconnected");
+    setApiStreams([]);
+    setApiStreamsEndpoint("");
+    setPublicPlaylist("");
+    setPublicPlaylistEndpoint("");
   }, []);
 
   const handleDeleteProfile = async (profile: FlussonicConnectionProfile) => {
@@ -739,6 +897,7 @@ service flussonic reload`;
       })) as SshResponse;
 
       if (!result.success) {
+        await reconcileMirrorAfterFailedMutation("excluir categoria");
         alert(
           `Falha ao excluir categoria: ${result.message}${result.output ? `\n${result.output}` : ""}`,
         );
@@ -749,6 +908,7 @@ service flussonic reload`;
       alert(result.message);
     } catch (error) {
       console.error(error);
+      await reconcileMirrorAfterFailedMutation("excluir categoria");
       alert(
         `Erro ao excluir categoria: ${error instanceof Error ? error.message : "falha inesperada"}`,
       );
@@ -1024,6 +1184,164 @@ service flussonic reload`;
                 </>
               )}
             </button>
+
+            <div className="rounded-2xl border border-white/10 bg-black/30 p-4 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-bold text-sm uppercase tracking-widest text-neutral-400">
+                    API Flussonic
+                  </h3>
+                  <p className="text-xs text-neutral-500 mt-1">
+                    Use a API para consultar streams e gerar playlists públicas sem depender do
+                    bloco SSH.
+                  </p>
+                </div>
+                <div className="text-[10px] uppercase tracking-widest text-neutral-500">
+                  Leitura + exportação
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">
+                    URL base da API
+                  </label>
+                  <input
+                    type="text"
+                    value={apiBaseUrl}
+                    onChange={(e) => setApiBaseUrl(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-purple-500 transition-colors text-sm"
+                    placeholder="http://173.208.244.141"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">
+                    Usuário API
+                  </label>
+                  <input
+                    type="text"
+                    value={apiUsername}
+                    onChange={(e) => setApiUsername(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-purple-500 transition-colors text-sm"
+                    placeholder="admin"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">
+                    Senha API
+                  </label>
+                  <input
+                    type="password"
+                    value={apiPassword}
+                    onChange={(e) => setApiPassword(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-purple-500 transition-colors text-sm"
+                    placeholder="admin"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">
+                    Endpoint de streams
+                  </label>
+                  <input
+                    type="text"
+                    value={apiStreamsPath}
+                    onChange={(e) => setApiStreamsPath(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-purple-500 transition-colors text-sm"
+                    placeholder="/streamer/api/v3/streams"
+                  />
+                  <p className="text-[10px] text-neutral-500 mt-2">
+                    Se o endpoint principal variar, o painel tenta automaticamente os caminhos
+                    compatíveis do Flussonic.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => void handleLoadApiStreams()}
+                  disabled={loadingApiStreams}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold transition-all"
+                >
+                  {loadingApiStreams ? <Loader2 className="animate-spin" size={16} /> : <List size={16} />}
+                  Consultar streams via API
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleGeneratePublicPlaylist()}
+                  disabled={loadingApiStreams}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold transition-all"
+                >
+                  {loadingApiStreams ? <Loader2 className="animate-spin" size={16} /> : <FileVideo size={16} />}
+                  Gerar M3U público
+                </button>
+              </div>
+
+              {apiStreamsEndpoint && (
+                <div className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-xs text-neutral-300">
+                  <div className="uppercase tracking-widest text-neutral-500 mb-1">Endpoint usado</div>
+                  <div className="break-all font-mono">{apiStreamsEndpoint}</div>
+                </div>
+              )}
+              {publicPlaylistEndpoint && (
+                <div className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-xs text-neutral-300">
+                  <div className="uppercase tracking-widest text-neutral-500 mb-1">
+                    Playlist público gerado a partir de
+                  </div>
+                  <div className="break-all font-mono">{publicPlaylistEndpoint}</div>
+                </div>
+              )}
+              {publicPlaylist && (
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleCopyPublicPlaylist()}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-xs font-bold text-white hover:bg-white/10 transition-colors"
+                    >
+                      {playlistCopied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                      Copiar M3U
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDownloadPublicPlaylist}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-xs font-bold text-white hover:bg-white/10 transition-colors"
+                    >
+                      <Download size={14} />
+                      Baixar M3U
+                    </button>
+                  </div>
+                  <pre className="max-h-56 overflow-auto rounded-xl border border-white/10 bg-black/50 p-4 text-[11px] leading-5 text-neutral-300 whitespace-pre-wrap">
+                    {publicPlaylist}
+                  </pre>
+                </div>
+              )}
+              {apiStreams.length > 0 && (
+                <div className="rounded-xl border border-white/10 bg-black/30 p-4">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div className="text-xs uppercase tracking-widest text-neutral-500">
+                      Streams retornados pela API
+                    </div>
+                    <div className="text-xs text-neutral-400">{apiStreams.length} itens</div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {apiStreams.slice(0, 16).map((stream) => (
+                      <span
+                        key={stream}
+                        className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-neutral-300"
+                      >
+                        {stream}
+                      </span>
+                    ))}
+                    {apiStreams.length > 16 && (
+                      <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-neutral-400">
+                        +{apiStreams.length - 16} mais
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="bg-black/20 rounded-2xl p-6 border border-white/5 flex flex-col items-center justify-center text-center space-y-4">
@@ -1211,7 +1529,7 @@ service flussonic reload`;
                             <div>{category.fileCount} arquivos</div>
                           </div>
                           <button
-                            onClick={() => handleDeleteCategory(category)}
+                            onClick={() => void handleDeleteCategory(category)}
                             disabled={deletingKey === `category:${category.path}`}
                             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-bold transition-all"
                           >
