@@ -122,6 +122,13 @@ export function Sidebar({
           <Settings size={20} /> <span className="font-medium">Listas M3U</span>
         </button>
         <button
+          data-view="flussonic"
+          onClick={handleNavigate}
+          className={`p-3 rounded-xl transition-all flex items-center gap-3 ${activeView === "flussonic" ? "bg-orange-600 shadow-lg shadow-orange-600/20" : "text-neutral-400 hover:bg-neutral-800"}`}
+        >
+          <Tv size={20} /> <span className="font-medium">Gestão Flussonic</span>
+        </button>
+        <button
           data-view="server"
           onClick={handleNavigate}
           className={`p-3 rounded-xl transition-all flex items-center gap-3 ${activeView === "server" ? "bg-blue-600 shadow-lg shadow-blue-600/20" : "text-neutral-400 hover:bg-neutral-800"}`}

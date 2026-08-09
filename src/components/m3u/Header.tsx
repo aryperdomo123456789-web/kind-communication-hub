@@ -65,6 +65,7 @@ export function Header({
     settings: "Gerenciar Listas",
     server: "Conectar Servidor",
     account: "Conta",
+    flussonic: "Gestão Flussonic PRO",
   };
 
   return (
@@ -83,7 +84,8 @@ export function Header({
         {activeView !== "settings" &&
           activeView !== "custom" &&
           activeView !== "server" &&
-          activeView !== "account" && (
+          activeView !== "account" &&
+          activeView !== "flussonic" && (
             <div className="relative flex-1 max-w-[200px] md:max-w-md hidden sm:block">
               <Search
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500"
@@ -108,7 +110,8 @@ export function Header({
         {activeView !== "settings" &&
           activeView !== "custom" &&
           activeView !== "server" &&
-          activeView !== "account" && (
+          activeView !== "account" &&
+          activeView !== "flussonic" && (
             <>
               {selectionMode ? (
                 <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4">
