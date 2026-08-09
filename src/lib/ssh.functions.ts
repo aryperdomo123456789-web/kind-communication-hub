@@ -668,7 +668,7 @@ function extractStreamNamesFromApiPayload(payload: unknown): string[] {
   };
 
   visit(payload);
-  return [..['name']s].sort((a, b) => a.localeCompare(b));
+  return Array.from(names).sort((a, b) => a.localeCompare(b));
 }
 
 async function fetchFlussonicApiStreamsList(input: z.infer<typeof flussonicApiSchema>): Promise<{
