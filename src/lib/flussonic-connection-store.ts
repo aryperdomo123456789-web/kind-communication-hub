@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import sqlite3 from "sqlite3";
+import sqlite3 from "@libsql/sqlite3";
 import { promisify } from "node:util";
 
 export type FlussonicConnectionHealthState = "connected" | "degraded" | "disconnected";
