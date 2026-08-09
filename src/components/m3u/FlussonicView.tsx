@@ -1,13 +1,20 @@
 import { useState, useEffect } from "react";
 import { Tv, FolderPlus, Plus, Loader2, CheckCircle2, AlertCircle, Info, RefreshCcw } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { createFlussonicCategory, createFlussonicChannel, listFlussonicCategories, type FlussonicResponse } from "@/lib/ssh.functions";
+import { 
+  createFlussonicCategory, 
+  createFlussonicChannel, 
+  listFlussonicCategories, 
+  getSavedFlussonicConnectionProfile,
+  type FlussonicResponse 
+} from "@/lib/ssh.functions";
 
-export function FlussonicView() {
+export function FlussonicView({ panelUsername }: { panelUsername: string }) {
   const [activeTab, setActiveTab] = useState<"category" | "channel">("category");
   const [loading, setLoading] = useState(false);
   const [serverCategories, setServerCategories] = useState<string[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [currentProfile, setCurrentProfile] = useState<any>(null);
   
   // States for Category
   const [catName, setCatName] = useState("");
@@ -17,17 +24,32 @@ export function FlussonicView() {
   const [selectedCat, setSelectedCat] = useState("");
   const [videoList, setVideoList] = useState("");
 
-  const createCat = useServerFn(createFlussonicCategory);
-  const createChannel = useServerFn(createFlussonicChannel);
-  const listCats = useServerFn(listFlussonicCategories);
+  const createCatFn = useServerFn(createFlussonicCategory);
+  const createChannelFn = useServerFn(createFlussonicChannel);
+  const listCatsFn = useServerFn(listFlussonicCategories);
+  const loadProfileFn = useServerFn(getSavedFlussonicConnectionProfile);
 
   const refreshCategories = async () => {
+    if (!panelUsername) return;
     setIsRefreshing(true);
     try {
-      const res = await listCats();
-      if (res.success) setServerCategories(res.categories);
+      const profileRes = await loadProfileFn({ data: { panelUsername } }) as any;
+      const profile = profileRes.profile;
+      setCurrentProfile(profile);
+
+      if (profile) {
+        const res = await listCatsFn({ 
+          data: { 
+            serverIp: profile.serverIp,
+            sshUser: profile.sshUser,
+            sshPassword: profile.sshPassword,
+            sshPort: profile.sshPort
+          } 
+        }) as any;
+        if (res.success) setServerCategories(res.categories);
+      }
     } catch (e) {
-      console.error("Erro ao listar categorias");
+      console.error("Erro ao listar categorias", e);
     } finally {
       setIsRefreshing(false);
     }
@@ -35,13 +57,24 @@ export function FlussonicView() {
 
   useEffect(() => {
     refreshCategories();
-  }, []);
+  }, [panelUsername]);
 
   const handleCreateCategory = async () => {
     if (!catName) return alert("Dê um nome para a categoria!");
+    if (!currentProfile) return alert("Conecte a um servidor primeiro na aba Conectar Servidor!");
+    
     setLoading(true);
     try {
-      const res = await createCat({ data: { name: catName } }) as FlussonicResponse;
+      const res = await createCatFn({ 
+        data: { 
+          serverIp: currentProfile.serverIp,
+          sshUser: currentProfile.sshUser,
+          sshPassword: currentProfile.sshPassword,
+          sshPort: currentProfile.sshPort,
+          name: catName 
+        } 
+      }) as FlussonicResponse;
+      
       alert(res.message);
       if (res.success) {
         setCatName("");
@@ -56,15 +89,22 @@ export function FlussonicView() {
 
   const handleCreateChannel = async () => {
     if (!channelName || !videoList) return alert("Preencha o nome do canal e a lista de vídeos!");
+    if (!currentProfile) return alert("Conecte a um servidor primeiro na aba Conectar Servidor!");
+
     setLoading(true);
     try {
-      const res = await createChannel({ 
+      const res = await createChannelFn({ 
         data: { 
+          serverIp: currentProfile.serverIp,
+          sshUser: currentProfile.sshUser,
+          sshPassword: currentProfile.sshPassword,
+          sshPort: currentProfile.sshPort,
           name: channelName, 
           category: selectedCat,
           videos: videoList.split("\n").filter(v => v.trim())
         } 
       }) as FlussonicResponse;
+      
       alert(res.message);
       if (res.success) {
         setChannelName("");
