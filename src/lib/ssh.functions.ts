@@ -782,10 +782,11 @@ async function checkFlussonicApiHealth(input: {
     }
   }
 
+  const firstPath = pathCandidates[0] || "/streamer/api/v3/streams";
   return {
     ok: false,
     message: "API do Flussonic não respondeu nos endpoints testados.",
-    endpoint: `${baseUrl}${pathCandidates[0].startsWith("/") ? pathCandidates[0] : `/${pathCandidates[0]}`}`,
+    endpoint: `${baseUrl}${firstPath.startsWith("/") ? firstPath : `/${firstPath}`}`,
   };
 }
 
