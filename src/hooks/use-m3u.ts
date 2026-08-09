@@ -129,11 +129,7 @@ export function useM3U() {
 
     const hydratePanelAccount = async () => {
       try {
-        const result = (await loadPanelAccountFn()) as {
-          success: boolean;
-          message: string;
-          account: PanelAccount;
-        };
+        const result = (await loadPanelAccountFn({ data: { panelUsername: panelAccount.username } })) as any;
 
         if (!mounted || !result.success || !result.account) return;
 

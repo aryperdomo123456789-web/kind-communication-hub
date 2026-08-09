@@ -493,7 +493,7 @@ service flussonic reload`;
           apiPassword,
           apiStreamsPath,
         },
-      })) as { success: boolean; message: string; endpoint: string; streams: string[] };
+      })) as any;
 
       if (!result.success) {
         alert(result.message);

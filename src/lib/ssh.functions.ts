@@ -91,7 +91,11 @@ const flussonicListSchema = z.object({
   sshUser: z.string().min(1).default("root"),
   sshPassword: z.string().optional().default(""),
   sshPort: z.number().int().positive().default(22),
-  flussonicConfPath: z.string().min(1).default("/etc/flussonic/flussonic.conf"),
+  flussonicConfPath: z.string().min(1).optional().default("/etc/flussonic/flussonic.conf"),
+  apiBaseUrl: z.string().optional(),
+  apiUsername: z.string().optional(),
+  apiPassword: z.string().optional(),
+  apiStreamsPath: z.string().optional(),
 });
 
 const deleteChannelSchema = z.object({
@@ -222,7 +226,7 @@ export const getPanelAccount = createServerFn({ method: "POST" })
   .validator(panelUsernameSchema)
   .handler(async ({ data }) => {
     const account = await getSavedPanelAccount(data.panelUsername);
-    return { success: !!account, account };
+    return { success: !!account, message: account ? "Conta carregada" : "Conta não encontrada", account };
   });
 
 export const loadPanelAccount = getPanelAccount;
@@ -279,7 +283,15 @@ export const clearFlussonicConnection = createServerFn({ method: "POST" })
 export const fetchFlussonicStreams = createServerFn({ method: "POST" })
   .validator(flussonicListSchema)
   .handler(async ({ data }) => {
-    return { success: true, message: "OK", streams: [] };
+    const baseUrl = normalizeApiBaseUrl(data.serverIp, data.apiBaseUrl);
+    const streamsPath = data.apiStreamsPath || "/streamer/api/v3/streams";
+    const endpoint = `${baseUrl}${streamsPath.startsWith("/") ? streamsPath : "/" + streamsPath}`;
+    return { 
+      success: true, 
+      message: "OK", 
+      endpoint,
+      streams: [] 
+    };
   });
 
 export const fetchFlussonicMirror = createServerFn({ method: "POST" })
