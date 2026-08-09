@@ -1,5 +1,7 @@
-import { Film, Tv, Play, CheckCircle2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { CheckCircle2, Play } from "lucide-react";
 import { M3UItem } from "@/lib/m3u/types";
+import { getContentCoverDataUrl } from "@/lib/m3u/cover";
 import { cn } from "@/lib/utils";
 
 interface ContentItemProps {
@@ -10,6 +12,15 @@ interface ContentItemProps {
 }
 
 export function ContentItem({ item, isSelected, selectionMode, onToggle }: ContentItemProps) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [item.id, item.logo]);
+
+  const fallbackCover = useMemo(() => getContentCoverDataUrl(item), [item]);
+  const coverSrc = item.logo && !imageFailed ? item.logo : fallbackCover;
+
   return (
     <div
       className={cn(
@@ -21,28 +32,34 @@ export function ContentItem({ item, isSelected, selectionMode, onToggle }: Conte
       style={{ contentVisibility: "auto", containIntrinsicSize: "320px 480px" }}
       onClick={() => (selectionMode ? onToggle(item.id) : null)}
     >
-      {item.logo ? (
+      <img
+        src={fallbackCover}
+        alt={item.name}
+        className="absolute inset-0 h-full w-full object-cover"
+        loading="lazy"
+        decoding="async"
+        draggable={false}
+        aria-hidden={Boolean(item.logo) && !imageFailed}
+      />
+      {item.logo && !imageFailed ? (
         <img
-          src={item.logo}
+          src={coverSrc}
           alt={item.name}
-          className={`w-full h-full object-cover transition-transform duration-500 ${selectionMode ? "" : "group-hover:scale-110"}`}
+          className={`absolute inset-0 h-full w-full object-cover transition-transform duration-500 ${selectionMode ? "" : "group-hover:scale-110"}`}
           loading="lazy"
           decoding="async"
           draggable={false}
+          onError={() => setImageFailed(true)}
         />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center text-neutral-800">
-          {item.type === "movie" ? (
-            <Film size={48} />
-          ) : item.type === "series" ? (
-            <Tv size={48} />
-          ) : (
-            <Play size={48} />
-          )}
-        </div>
-      )}
+      ) : null}
 
       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-80" />
+
+      {!item.logo && (
+        <div className="absolute top-3 right-3 rounded-full border border-white/10 bg-black/25 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white/70 backdrop-blur-sm">
+          {item.type === "movie" ? "Filme" : item.type === "series" ? "Serie" : "Ao Vivo"}
+        </div>
+      )}
 
       {isSelected && (
         <div className="absolute top-2 right-2 bg-blue-600 rounded-full p-1 shadow-lg">

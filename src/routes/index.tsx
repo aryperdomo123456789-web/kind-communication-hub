@@ -48,6 +48,8 @@ function Index() {
     createCustomCategory,
     deleteCustomCategory,
     addM3UList,
+    activateM3UList,
+    deactivateActiveM3UList,
     removeM3UList,
     filteredItems,
     setSelectedIds,
@@ -224,8 +226,9 @@ function Index() {
                 lists={m3uLists}
                 activeUrl={activeListUrl}
                 onAdd={addM3UList}
+                onActivate={activateM3UList}
+                onDisconnect={deactivateActiveM3UList}
                 onRemove={removeM3UList}
-                onProcess={handleProcess}
               />
             ) : activeView === "custom" ? (
                <CustomCategoriesView

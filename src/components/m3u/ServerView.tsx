@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Server,
   Shield,
   Download,
   CheckCircle2,
   Loader2,
-  Send,
   Terminal,
   Copy,
   Check,
@@ -16,18 +15,33 @@ import {
   FileVideo,
   Trash2,
   CircleDashed,
+  ArrowUp,
+  ArrowDown,
+  Repeat2,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   activateSavedFlussonicProfile,
+  type DownloadJobEventRecord,
   deleteFlussonicCategory,
   deleteFlussonicChannel,
   deleteSavedFlussonicProfile,
   fetchFlussonicMirror,
   fetchFlussonicStreams,
+  fetchLatestFlussonicDownloadJobStatus,
   generateFlussonicPublicPlaylist,
   loadFlussonicConnectionProfile,
+  fetchFlussonicDownloadJobTrace,
+  publishFlussonicDownloadJob,
   refreshFlussonicConnectionProfile,
+  resumeFlussonicDownloadJob,
   startFlussonicDownloadJob,
   fetchFlussonicDownloadJobStatus,
   connectSsh as validateSshConnection,
@@ -102,6 +116,7 @@ export function ServerView({
   );
   const [connectionHealth, setConnectionHealth] = useState<FlussonicConnectionHealth | null>(null);
   const [downloadingCategory, setDownloadingCategory] = useState<string | null>(null);
+  const [publishingJobId, setPublishingJobId] = useState<string | null>(null);
   const [loadingStreams, setLoadingStreams] = useState(false);
   const [loadingMirror, setLoadingMirror] = useState(false);
   const [loadingApiStreams, setLoadingApiStreams] = useState(false);
@@ -109,18 +124,33 @@ export function ServerView({
   const [playlistCopied, setPlaylistCopied] = useState(false);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [downloadJob, setDownloadJob] = useState<FlussonicDownloadJobStatus | null>(null);
+  const [downloadJobEvents, setDownloadJobEvents] = useState<DownloadJobEventRecord[]>([]);
   const [jobInProgress, setJobInProgress] = useState(false);
+  const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
+  const [downloadSourceCategory, setDownloadSourceCategory] = useState("");
+  const [downloadTargetMode, setDownloadTargetMode] = useState<"existing" | "new">("existing");
+  const [downloadExistingCategory, setDownloadExistingCategory] = useState("");
+  const [downloadNewCategory, setDownloadNewCategory] = useState("");
+  const [downloadChannelName, setDownloadChannelName] = useState("");
+  const [downloadSelectedItemIds, setDownloadSelectedItemIds] = useState<string[]>([]);
+  const [downloadQueueOrder, setDownloadQueueOrder] = useState<string[]>([]);
+  const [downloadItemSearch, setDownloadItemSearch] = useState("");
   const [apiStreamsEndpoint, setApiStreamsEndpoint] = useState("");
   const [apiStreams, setApiStreams] = useState<string[]>([]);
   const [publicPlaylist, setPublicPlaylist] = useState("");
   const [publicPlaylistEndpoint, setPublicPlaylistEndpoint] = useState("");
   const jobPollRef = useRef<number | null>(null);
+  const jobStatusPollInFlightRef = useRef(false);
+  const restoreJobAttemptedRef = useRef(false);
   const syncFn = useServerFn(fetchFlussonicStreams);
   const mirrorFn = useServerFn(fetchFlussonicMirror);
   const deleteChannelFn = useServerFn(deleteFlussonicChannel);
   const deleteCategoryFn = useServerFn(deleteFlussonicCategory);
   const startJobFn = useServerFn(startFlussonicDownloadJob);
+  const resumeJobFn = useServerFn(resumeFlussonicDownloadJob);
+  const publishJobFn = useServerFn(publishFlussonicDownloadJob);
   const readJobStatusFn = useServerFn(fetchFlussonicDownloadJobStatus);
+  const latestJobFn = useServerFn(fetchLatestFlussonicDownloadJobStatus);
   const apiStreamsFn = useServerFn(fetchFlussonicStreams);
   const publicPlaylistFn = useServerFn(generateFlussonicPublicPlaylist);
   const loadProfileFn = useServerFn(loadFlussonicConnectionProfile);
@@ -187,6 +217,79 @@ service flussonic reload`;
     [],
   );
 
+  const downloadJobStorageKey = `mago_flussonic_active_download_job_id:${panelUsername}`;
+
+  const syncDownloadJobTrace = useCallback(
+    async (jobId: string) => {
+      try {
+        const result = (await fetchFlussonicDownloadJobTrace({
+          data: { jobId },
+        })) as {
+          success: boolean;
+          message: string;
+          events: DownloadJobEventRecord[];
+          status: FlussonicDownloadJobStatus | null;
+        };
+
+        if (result.success) {
+          setDownloadJobEvents(result.events || []);
+        }
+      } catch (error) {
+        console.error("Falha ao carregar trilha do job:", error);
+      }
+    },
+    [],
+  );
+
+  const cacheActiveDownloadJobId = useCallback(
+    (jobId: string | null) => {
+      if (typeof window === "undefined") return;
+      if (jobId) {
+        localStorage.setItem(downloadJobStorageKey, jobId);
+      } else {
+        localStorage.removeItem(downloadJobStorageKey);
+      }
+    },
+    [downloadJobStorageKey],
+  );
+
+  const withTimeout = useCallback(async <T,>(promise: Promise<T>, timeoutMs: number, label: string) => {
+    let timeoutId: number | undefined;
+    const timeout = new Promise<T>((_, reject) => {
+      timeoutId = window.setTimeout(() => reject(new Error(`${label} demorou demais`)), timeoutMs);
+    });
+
+    try {
+      return await Promise.race([promise, timeout]);
+    } finally {
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+    }
+  }, []);
+
+  const describeError = useCallback((error: unknown, fallback: string) => {
+    if (error instanceof Error && error.message.trim()) {
+      return error.message;
+    }
+
+    if (typeof error === "string" && error.trim()) {
+      return error;
+    }
+
+    return fallback;
+  }, []);
+
+  const filteredDownloadItems = useMemo(() => {
+    if (!downloadJob) return [];
+    const query = downloadItemSearch.trim().toLowerCase();
+    if (!query) return downloadJob.items;
+    return downloadJob.items.filter((item) => {
+      const haystack = `${item.name} ${item.fileName} ${item.url}`.toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [downloadItemSearch, downloadJob]);
+
   const applyProfileToForm = (profile: FlussonicConnectionProfile) => {
     setServerIp(profile.serverIp);
     setSshUser(profile.sshUser);
@@ -210,15 +313,19 @@ service flussonic reload`;
         sshPort: nextSshPort,
       } = getConnectionConfig(profileOverride);
       try {
-        const result = (await syncFn({
-          data: {
-            serverIp: nextServerIp,
-            sshUser: nextSshUser,
-            sshPassword: nextSshPassword,
-            sshPort: nextSshPort,
-            flussonicConfPath: "/etc/flussonic/flussonic.conf",
-          },
-        })) as any;
+        const result = (await withTimeout(
+          syncFn({
+            data: {
+              serverIp: nextServerIp,
+              sshUser: nextSshUser,
+              sshPassword: nextSshPassword,
+              sshPort: nextSshPort,
+              flussonicConfPath: "/etc/flussonic/flussonic.conf",
+            },
+          }) as Promise<any>,
+          30000,
+          "Leitura das categorias",
+        )) as any;
 
         if (result.success) {
           onFlussonicStreamsChange(result.streams);
@@ -227,12 +334,12 @@ service flussonic reload`;
         }
       } catch (error) {
         console.error(error);
-        alert("Erro ao ler categorias do Flussonic.");
+        alert(`Erro ao ler categorias do Flussonic: ${describeError(error, "erro desconhecido")}`);
       } finally {
         setLoadingStreams(false);
       }
     },
-    [getConnectionConfig, onFlussonicStreamsChange, syncFn],
+    [describeError, getConnectionConfig, onFlussonicStreamsChange, syncFn, withTimeout],
   );
 
   const loadFlussonicMirror = useCallback(
@@ -245,15 +352,19 @@ service flussonic reload`;
         sshPort: nextSshPort,
       } = getConnectionConfig(profileOverride);
       try {
-        const result = (await mirrorFn({
-          data: {
-            serverIp: nextServerIp,
-            sshUser: nextSshUser,
-            sshPassword: nextSshPassword,
-            sshPort: nextSshPort,
-            flussonicConfPath: "/etc/flussonic/flussonic.conf",
-          },
-        })) as { success: boolean; message: string; snapshot: FlussonicMirrorSnapshot | null };
+        const result = (await withTimeout(
+          mirrorFn({
+            data: {
+              serverIp: nextServerIp,
+              sshUser: nextSshUser,
+              sshPassword: nextSshPassword,
+              sshPort: nextSshPort,
+              flussonicConfPath: "/etc/flussonic/flussonic.conf",
+            },
+          }) as Promise<{ success: boolean; message: string; snapshot: FlussonicMirrorSnapshot | null }>,
+          30000,
+          "Sincronização da árvore",
+        )) as { success: boolean; message: string; snapshot: FlussonicMirrorSnapshot | null };
 
         if (result.success) {
           onFlussonicMirrorChange(result.snapshot);
@@ -263,20 +374,47 @@ service flussonic reload`;
         }
       } catch (error) {
         console.error(error);
-        alert("Erro ao sincronizar espelho do Flussonic.");
+        alert(`Erro ao sincronizar espelho do Flussonic: ${describeError(error, "erro desconhecido")}`);
       } finally {
         setLoadingMirror(false);
       }
     },
-    [getConnectionConfig, mirrorFn, onFlussonicMirrorChange, onFlussonicStreamsChange],
+    [describeError, getConnectionConfig, mirrorFn, onFlussonicMirrorChange, onFlussonicStreamsChange, withTimeout],
+  );
+
+  const resolveProfileForSync = useCallback(
+    async (profileOverride?: Partial<FlussonicConnectionProfile>) => {
+      if (profileOverride?.serverIp) {
+        return profileOverride;
+      }
+
+      try {
+        const result = (await loadProfileFn({
+          data: { panelUsername },
+        })) as {
+          success: boolean;
+          profile: FlussonicConnectionProfile | null;
+        };
+
+        if (result.success && result.profile) {
+          return result.profile;
+        }
+      } catch (error) {
+        console.warn("Falha ao carregar perfil salvo para sincronização:", error);
+      }
+
+      return profileOverride;
+    },
+    [loadProfileFn, panelUsername],
   );
 
   const syncMirrorAndStreams = useCallback(
     async (profileOverride?: Partial<FlussonicConnectionProfile>) => {
-      await loadFlussonicMirror(profileOverride);
-      await loadFlussonicStreams(profileOverride);
+      const resolvedProfile = await resolveProfileForSync(profileOverride);
+      await loadFlussonicMirror(resolvedProfile);
+      await loadFlussonicStreams(resolvedProfile);
     },
-    [loadFlussonicMirror, loadFlussonicStreams],
+    [loadFlussonicMirror, loadFlussonicStreams, resolveProfileForSync],
   );
 
   const refreshMirrorAfterMutation = useCallback(
@@ -341,6 +479,100 @@ service flussonic reload`;
       // Mantém os valores atuais se o cache salvo estiver inválido.
     }
   }, []);
+
+  useEffect(() => {
+    restoreJobAttemptedRef.current = false;
+    setDownloadJob(null);
+    setDownloadJobEvents([]);
+    setJobInProgress(false);
+  }, [panelUsername]);
+
+  useEffect(() => {
+    if (restoreJobAttemptedRef.current) return;
+    restoreJobAttemptedRef.current = true;
+
+    let isActive = true;
+
+    const restoreActiveJob = async () => {
+      try {
+        const storedJobId = typeof window === "undefined" ? "" : localStorage.getItem(downloadJobStorageKey) || "";
+
+        const loadStatus = async (jobId: string) =>
+          (await withTimeout(
+            readJobStatusFn({
+              data: { jobId },
+            }) as Promise<{ success: boolean; message: string; status: FlussonicDownloadJobStatus | null }>,
+            10000,
+            "Restauração do job",
+          )) as { success: boolean; message: string; status: FlussonicDownloadJobStatus | null };
+
+        const resumeIfNeeded = async (status: FlussonicDownloadJobStatus, jobId: string) => {
+          if (!isActive) return false;
+
+          setDownloadJob(status);
+          setJobInProgress(status.state === "queued" || status.state === "running");
+          cacheActiveDownloadJobId(
+            status.state === "completed" || status.state === "failed" ? null : jobId,
+          );
+          await syncDownloadJobTrace(jobId);
+
+          if (status.state === "queued" || status.state === "running") {
+            try {
+              await resumeJobFn({
+                data: {
+                  jobId,
+                },
+              });
+            } catch (error) {
+              console.error("Falha ao retomar job:", error);
+            }
+          }
+
+          return true;
+        };
+
+        if (storedJobId) {
+          const storedResult = await loadStatus(storedJobId);
+          if (storedResult.success && storedResult.status) {
+            const handled = await resumeIfNeeded(storedResult.status, storedJobId);
+            if (handled) return;
+          }
+        }
+
+        const latestResult = (await withTimeout(
+          latestJobFn({
+            data: { panelUsername },
+          }) as Promise<{ success: boolean; message: string; status: FlussonicDownloadJobStatus | null }>,
+          10000,
+          "Busca do job ativo",
+        )) as { success: boolean; message: string; status: FlussonicDownloadJobStatus | null };
+
+        if (latestResult.success && latestResult.status) {
+          const handled = await resumeIfNeeded(latestResult.status, latestResult.status.jobId);
+          if (handled) return;
+        }
+
+        cacheActiveDownloadJobId(null);
+      } catch (error) {
+        console.error("Falha ao restaurar job ativo:", error);
+        cacheActiveDownloadJobId(null);
+      }
+    };
+
+    void restoreActiveJob();
+
+    return () => {
+      isActive = false;
+    };
+  }, [
+    panelUsername,
+    downloadJobStorageKey,
+    readJobStatusFn,
+    latestJobFn,
+    syncDownloadJobTrace,
+    cacheActiveDownloadJobId,
+    resumeJobFn,
+  ]);
 
   useEffect(() => {
     let isActive = true;
@@ -501,7 +733,7 @@ service flussonic reload`;
       }
 
       setApiStreamsEndpoint(result.endpoint);
-      setApiStreams(result.streams);
+      setApiStreams(result.streams.map((stream: { name: string }) => stream.name));
       setPublicPlaylist("");
       setPublicPlaylistEndpoint("");
       alert(result.message);
@@ -606,24 +838,147 @@ service flussonic reload`;
     return undefined;
   }, [connectionHealth, panelUsername, refreshProfileFn]);
 
-  const handleDownload = async (categoryName: string) => {
+  const openDownloadDialog = (categoryName: string) => {
+    const sourceItems = customCategories[categoryName] || [];
+    const existingCategory = flussonicMirror?.categories?.[0]?.name || "";
+    setDownloadSourceCategory(categoryName);
+    setDownloadTargetMode(existingCategory ? "existing" : "new");
+    setDownloadExistingCategory(existingCategory);
+    setDownloadNewCategory(categoryName);
+    const nextQueue = sourceItems.map((item) => item.id);
+    setDownloadSelectedItemIds(nextQueue);
+    setDownloadQueueOrder(nextQueue);
+    setDownloadChannelName(categoryName);
+    setDownloadDialogOpen(true);
+  };
+
+  const canManuallyPublishJob =
+    Boolean(downloadJob) &&
+    downloadJob.state !== "running" &&
+    downloadJob.completedItems > 0 &&
+    downloadJob.items.some((item) => item.status === "done");
+
+  const handleManualPublishJob = async () => {
+    if (!downloadJob?.jobId) return;
+    setPublishingJobId(downloadJob.jobId);
+    try {
+      const result = (await publishJobFn({
+        data: {
+          jobId: downloadJob.jobId,
+        },
+      })) as {
+        success: boolean;
+        message: string;
+        status: FlussonicDownloadJobStatus | null;
+      };
+
+      if (!result.success || !result.status) {
+        alert(result.message);
+        return;
+      }
+
+      setDownloadJob(result.status);
+      void syncDownloadJobTrace(result.status.jobId);
+      void syncMirrorAndStreams();
+      alert(result.message);
+    } catch (error) {
+      console.error(error);
+      alert(`Falha ao publicar o canal: ${error instanceof Error ? error.message : "erro inesperado"}`);
+    } finally {
+      setPublishingJobId(null);
+    }
+  };
+
+  const toggleDownloadSelectedItem = useCallback((itemId: string) => {
+    setDownloadSelectedItemIds((current) =>
+      current.includes(itemId) ? current.filter((id) => id !== itemId) : [...current, itemId],
+    );
+    setDownloadQueueOrder((current) => {
+      if (current.includes(itemId)) {
+        return current.filter((id) => id !== itemId);
+      }
+      return [...current, itemId];
+    });
+  }, []);
+
+  const selectAllDownloadItems = useCallback(() => {
+    const sourceItems = customCategories[downloadSourceCategory] || [];
+    const nextQueue = sourceItems.map((item) => item.id);
+    setDownloadSelectedItemIds(nextQueue);
+    setDownloadQueueOrder(nextQueue);
+  }, [customCategories, downloadSourceCategory]);
+
+  const clearDownloadItems = useCallback(() => {
+    setDownloadSelectedItemIds([]);
+    setDownloadQueueOrder([]);
+  }, []);
+
+  const moveDownloadQueueItem = useCallback((itemId: string, direction: -1 | 1) => {
+    setDownloadQueueOrder((current) => {
+      const index = current.indexOf(itemId);
+      if (index < 0) return current;
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= current.length) return current;
+
+      const next = [...current];
+      const [removed] = next.splice(index, 1);
+      next.splice(targetIndex, 0, removed);
+      return next;
+    });
+  }, []);
+
+  const downloadSourceItems = customCategories[downloadSourceCategory] || [];
+  const downloadQueueItems = useMemo(() => {
+    const itemsById = new Map(downloadSourceItems.map((item) => [item.id, item]));
+    return downloadQueueOrder
+      .map((itemId) => itemsById.get(itemId))
+      .filter((item): item is M3UItem => Boolean(item));
+  }, [downloadQueueOrder, downloadSourceItems]);
+
+  const handleDownload = async () => {
+    if (!downloadSourceCategory) return;
     if (sshStatus !== "connected") {
       alert("Conecte ao servidor via SSH primeiro!");
       return;
     }
 
-    setDownloadingCategory(categoryName);
+    const sourceItems = customCategories[downloadSourceCategory] || [];
+    const selectedMap = new Map(sourceItems.map((item) => [item.id, item]));
+    const selectedSourceItems = downloadQueueOrder
+      .map((itemId) => selectedMap.get(itemId))
+      .filter((item): item is (typeof sourceItems)[number] => !!item);
+    const targetCategoryName =
+      downloadTargetMode === "existing" ? downloadExistingCategory.trim() : downloadNewCategory.trim();
+    const targetChannelName = downloadChannelName.trim() || downloadSourceCategory.trim();
+
+    if (selectedSourceItems.length === 0) {
+      alert("Selecione pelo menos um filme para iniciar a fila.");
+      return;
+    }
+
+    if (!targetCategoryName) {
+      alert(
+        downloadTargetMode === "existing"
+          ? "Selecione uma categoria existente."
+          : "Informe o nome da nova categoria.",
+      );
+      return;
+    }
+
+    setDownloadingCategory(downloadSourceCategory);
     setJobInProgress(true);
     try {
       const result = (await startJobFn({
         data: {
+          panelUsername,
           serverIp,
           sshUser,
           sshPassword,
           sshPort: parseInt(sshPort),
-          categoryName,
-          items: (customCategories[categoryName] || []).map(item => ({ name: item.name, url: item.url })),
-          concurrency: 3,
+          categoryName: targetCategoryName,
+          channelName: targetChannelName,
+          items: selectedSourceItems.map((item) => ({ name: item.name, url: item.url })),
+          concurrency: 2,
         },
       })) as SshResponse;
 
@@ -631,15 +986,16 @@ service flussonic reload`;
         const initialJob: FlussonicDownloadJobStatus = {
           jobId: result.jobId || "",
           state: "queued",
-          categoryName,
-          streamName: result.streamName || categoryName,
+          categoryName: targetCategoryName,
+          channelName: targetChannelName,
+          streamName: result.streamName || targetChannelName,
           folder: result.folder || "",
           playlistPath: result.playlistPath || "",
-          totalItems: customCategories[categoryName]?.length || 0,
+          totalItems: selectedSourceItems.length,
           completedItems: 0,
           failedItems: 0,
           percent: 0,
-          items: (customCategories[categoryName] || []).map(item => ({ name: item.name, url: item.url })).map((item, index) => ({
+          items: selectedSourceItems.map((item, index) => ({
             name: item.name,
             fileName: `${String(index + 1).padStart(3, "0")}-${item.name}`,
             url: item.url,
@@ -649,23 +1005,31 @@ service flussonic reload`;
           })),
         };
         setDownloadJob(initialJob);
+        setDownloadJobEvents([]);
+        setDownloadItemSearch("");
+        cacheActiveDownloadJobId(result.jobId || null);
+        void syncDownloadJobTrace(result.jobId || "");
+        setDownloadDialogOpen(false);
         alert(
-          `Fila iniciada para "${categoryName}". O painel vai mostrar o progresso em tempo real.`,
+          `Canal 24h em loop iniciado para "${downloadSourceCategory}". O painel vai mostrar o progresso em tempo real.`,
         );
       } else {
         alert("Erro: " + result.message);
         setJobInProgress(false);
+        cacheActiveDownloadJobId(null);
       }
     } catch (error) {
       alert("Erro ao enviar categoria.");
       setJobInProgress(false);
+      cacheActiveDownloadJobId(null);
     } finally {
       setDownloadingCategory(null);
+      setDownloadDialogOpen(false);
     }
   };
 
   useEffect(() => {
-    if (!downloadJob?.jobId || sshStatus !== "connected") {
+    if (!downloadJob?.jobId) {
       if (jobPollRef.current) {
         window.clearInterval(jobPollRef.current);
         jobPollRef.current = null;
@@ -674,23 +1038,31 @@ service flussonic reload`;
     }
 
     const poll = async () => {
+      if (jobStatusPollInFlightRef.current) return;
+      jobStatusPollInFlightRef.current = true;
       try {
-        const result = (await readJobStatusFn({
-          data: {
-            serverIp,
-            sshUser,
-            sshPassword,
-            sshPort: parseInt(sshPort),
-            jobId: downloadJob.jobId,
-          },
-        })) as { success: boolean; message: string; status: FlussonicDownloadJobStatus | null };
+        const result = (await withTimeout(
+          readJobStatusFn({
+            data: {
+              serverIp,
+              sshUser,
+              sshPassword,
+              sshPort: parseInt(sshPort),
+              jobId: downloadJob.jobId,
+            },
+          }) as Promise<{ success: boolean; message: string; status: FlussonicDownloadJobStatus | null }>,
+          10000,
+          "Consulta do job",
+        )) as { success: boolean; message: string; status: FlussonicDownloadJobStatus | null };
 
         if (!result.success || !result.status) return;
 
         setDownloadJob(result.status);
+        void syncDownloadJobTrace(result.status.jobId);
 
         if (result.status.state === "completed" || result.status.state === "failed") {
           setJobInProgress(false);
+          cacheActiveDownloadJobId(null);
           if (jobPollRef.current) {
             window.clearInterval(jobPollRef.current);
             jobPollRef.current = null;
@@ -704,6 +1076,8 @@ service flussonic reload`;
         }
       } catch (error) {
         console.error(error);
+      } finally {
+        jobStatusPollInFlightRef.current = false;
       }
     };
 
@@ -725,8 +1099,9 @@ service flussonic reload`;
     serverIp,
     sshPassword,
     sshPort,
-    sshStatus,
     sshUser,
+    cacheActiveDownloadJobId,
+    syncDownloadJobTrace,
   ]);
 
   const hydrateSelectedProfile = (profile: FlussonicConnectionProfile) => {
@@ -783,11 +1158,16 @@ service flussonic reload`;
     setApiStreamsPath("/streamer/api/v3/streams");
     setConnectionHealth(null);
     setSshStatus("disconnected");
+    setDownloadJob(null);
+    setDownloadJobEvents([]);
+    setDownloadItemSearch("");
+    setJobInProgress(false);
+    cacheActiveDownloadJobId(null);
     setApiStreams([]);
     setApiStreamsEndpoint("");
     setPublicPlaylist("");
     setPublicPlaylistEndpoint("");
-  }, []);
+  }, [cacheActiveDownloadJobId]);
 
   const handleDeleteProfile = async (profile: FlussonicConnectionProfile) => {
     if (!profile.profileId) return;
@@ -850,6 +1230,10 @@ service flussonic reload`;
           sshPassword,
           sshPort: parseInt(sshPort),
           flussonicConfPath: "/etc/flussonic/flussonic.conf",
+          apiBaseUrl,
+          apiUsername,
+          apiPassword,
+          apiStreamsPath,
           channelPath: channel.folderPath,
           playlistPath: channel.playlistPath || "",
           streamName: channel.streamName,
@@ -891,6 +1275,10 @@ service flussonic reload`;
           sshPassword,
           sshPort: parseInt(sshPort),
           flussonicConfPath: "/etc/flussonic/flussonic.conf",
+          apiBaseUrl,
+          apiUsername,
+          apiPassword,
+          apiStreamsPath,
           categoryPath: category.path,
         },
       })) as SshResponse;
@@ -916,6 +1304,68 @@ service flussonic reload`;
     }
   };
 
+  const getStreamRuntimeState = (stream: FlussonicStreamInfo) => {
+    const status = (stream.status || "").toLowerCase();
+    if (status.includes("run")) return { label: "ONLINE", tone: "bg-green-500/15 text-green-400 border-green-500/20" };
+    if (status.includes("wait")) return { label: "WAITING", tone: "bg-amber-500/15 text-amber-400 border-amber-500/20" };
+    if (status.includes("stop") || status.includes("fail") || status.includes("err")) {
+      return { label: "OFFLINE", tone: "bg-red-500/15 text-red-400 border-red-500/20" };
+    }
+    if (stream.running) return { label: "ONLINE", tone: "bg-green-500/15 text-green-400 border-green-500/20" };
+    return { label: "UNKNOWN", tone: "bg-white/10 text-neutral-300 border-white/10" };
+  };
+
+  const formatBitrate = (value?: number) => {
+    if (!value || !Number.isFinite(value)) return "0 kbps";
+    if (value >= 1000000) return `${(value / 1000000).toFixed(1)} Mbps`;
+    if (value >= 1000) return `${(value / 1000).toFixed(0)} kbps`;
+    return `${value} bps`;
+  };
+
+  const downloadStream = downloadJob
+    ? flussonicStreams.find((stream) => stream.name === downloadJob.streamName)
+    : null;
+  const downloadStreamIsOnline =
+    Boolean(downloadStream?.running) ||
+    Boolean((downloadStream?.status || "").toLowerCase().includes("run"));
+  const downloadFlowState =
+    publishingJobId === downloadJob?.jobId || downloadJob?.state === "running"
+      ? "publicando"
+      : downloadStreamIsOnline
+        ? "online"
+        : downloadJob?.completedItems && downloadJob.completedItems > 0
+          ? "pronto"
+          : "publicando";
+  const downloadFlowHint =
+    downloadFlowState === "publicando"
+      ? "Os arquivos estão sendo processados e a playlist está em construção."
+      : downloadFlowState === "pronto"
+        ? "Os arquivos já estão prontos; se necessário, use a subida segura."
+        : "O stream já está online no Flussonic.";
+  const downloadFlowChips = [
+    {
+      key: "publicando",
+      label: "publicando",
+      active: downloadFlowState === "publicando",
+      tone: "border-blue-500/25 bg-blue-500/15 text-blue-300",
+      idle: "border-white/10 bg-black/20 text-neutral-400",
+    },
+    {
+      key: "pronto",
+      label: "pronto",
+      active: downloadFlowState === "pronto",
+      tone: "border-amber-500/25 bg-amber-500/15 text-amber-300",
+      idle: "border-white/10 bg-black/20 text-neutral-400",
+    },
+    {
+      key: "online",
+      label: "online",
+      active: downloadFlowState === "online",
+      tone: "border-green-500/25 bg-green-500/15 text-green-300",
+      idle: "border-white/10 bg-black/20 text-neutral-400",
+    },
+  ] as const;
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
       <div className="bg-[#141414] border border-white/5 rounded-2xl p-6">
@@ -925,9 +1375,9 @@ service flussonic reload`;
               <Server size={24} />
             </div>
             <div>
-              <h2 className="text-xl font-bold">Configuração do Servidor</h2>
+              <h2 className="text-xl font-bold">Conexão e Gestão do Flussonic</h2>
               <p className="text-sm text-neutral-400">
-                Prepare seu servidor para receber os conteúdos
+                Conecte ao host real, consulte a API e gerencie canais e categorias do servidor
               </p>
             </div>
           </div>
@@ -945,10 +1395,10 @@ service flussonic reload`;
               <Terminal size={20} />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-blue-400 mb-1">Passo 1: Prepare o Flussonic</h3>
+              <h3 className="font-bold text-blue-400 mb-1">Preparar storage remoto do Flussonic</h3>
               <p className="text-sm text-neutral-300 mb-4">
-                Este comando prepara a VOD location local do Flussonic para receber os vídeos
-                baixados pelo painel:
+                Este comando garante a pasta de trabalho remota e a base de storage usada pela
+                API e pelo SSH:
               </p>
               <div className="relative group">
                 <div className="bg-black/60 rounded-lg p-4 font-mono text-[10px] sm:text-xs text-blue-300 break-all pr-12 border border-white/5 overflow-x-auto">
@@ -982,8 +1432,8 @@ service flussonic reload`;
                 </button>
               </div>
               <p className="text-[10px] text-neutral-500 mt-3 italic">
-                * Depois disso, o painel baixa os arquivos, cria a playlist e atualiza o canal
-                automaticamente.
+                * Depois disso, o painel grava a playlist, registra o stream na API e atualiza o
+                espelho do servidor automaticamente.
               </p>
             </div>
           </div>
@@ -992,19 +1442,19 @@ service flussonic reload`;
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
             <h3 className="font-bold text-neutral-400 text-xs uppercase tracking-widest flex items-center gap-2 mb-4">
-              <Shield size={14} /> Passo 2: Autenticação de Acesso
+              <Shield size={14} /> Conexão autenticada
             </h3>
 
             <div className="rounded-2xl border border-white/10 bg-black/30 p-4 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="text-xs uppercase tracking-widest text-neutral-500">
-                    Servidores salvos
+                    Conexões salvas
                   </div>
                   <div className="text-sm text-neutral-300">
                     {savedProfiles.length > 0
-                      ? `${savedProfiles.length} perfil${savedProfiles.length === 1 ? "" : "s"} disponível(eis)`
-                      : "Nenhum servidor salvo ainda"}
+                      ? `${savedProfiles.length} conexão${savedProfiles.length === 1 ? "" : "ões"} disponível(is)`
+                      : "Nenhuma conexão salva ainda"}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1014,14 +1464,14 @@ service flussonic reload`;
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-xs font-bold text-white hover:bg-white/10 transition-colors disabled:opacity-50"
                   >
                     <RefreshCw size={14} />
-                    Atualizar
+                    Revalidar
                   </button>
                   <button
                     onClick={handleStartNewServer}
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold transition-colors"
                   >
                     <Server size={14} />
-                    Novo servidor
+                    Nova conexão
                   </button>
                 </div>
               </div>
@@ -1073,7 +1523,7 @@ service flussonic reload`;
                               void handleDeleteProfile(profile);
                             }}
                             className="p-1.5 rounded-md text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                            title="Remover servidor"
+                            title="Remover conexão"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -1094,7 +1544,7 @@ service flussonic reload`;
             <div className="grid sm:grid-cols-3 gap-4">
               <div className="sm:col-span-3">
                 <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">
-                  Nome do servidor
+                  Nome da conexão
                 </label>
                 <input
                   type="text"
@@ -1133,7 +1583,7 @@ service flussonic reload`;
             <div className="grid sm:grid-cols-4 gap-4">
               <div className="sm:col-span-3">
                 <label className="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">
-                  Senha SSH ou Chave
+                  Senha SSH ou chave
                 </label>
                 <input
                   type="password"
@@ -1143,7 +1593,8 @@ service flussonic reload`;
                   placeholder="Deixe em branco se a chave SSH já estiver autorizada"
                 />
                 <p className="text-[10px] text-neutral-500 mt-2">
-                  O painel tenta usar a chave privada do servidor automaticamente antes da senha.
+                  O painel usa a chave SSH quando disponível e cai para senha apenas se
+                  necessário.
                 </p>
               </div>
               <div>
@@ -1174,12 +1625,12 @@ service flussonic reload`;
               ) : sshStatus === "connected" ? (
                 <>
                   <CheckCircle2 size={20} />
-                  Servidor salvo e autorizado
+                  Conexão salva e autorizada
                 </>
               ) : (
                 <>
                   <Shield size={20} />
-                  Validar acesso e salvar servidor
+                  Validar acesso e salvar conexão
                 </>
               )}
             </button>
@@ -1192,7 +1643,7 @@ service flussonic reload`;
                   </h3>
                   <p className="text-xs text-neutral-500 mt-1">
                     Use a API para consultar streams e gerar playlists públicas sem depender do
-                    bloco SSH.
+                    acesso SSH.
                   </p>
                 </div>
                 <div className="text-[10px] uppercase tracking-widest text-neutral-500">
@@ -1249,7 +1700,7 @@ service flussonic reload`;
                     placeholder="/streamer/api/v3/streams"
                   />
                   <p className="text-[10px] text-neutral-500 mt-2">
-                    Se o endpoint principal variar, o painel tenta automaticamente os caminhos
+                    Se o endpoint principal variar, o painel tenta automaticamente caminhos
                     compatíveis do Flussonic.
                   </p>
                 </div>
@@ -1263,7 +1714,7 @@ service flussonic reload`;
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold transition-all"
                 >
                   {loadingApiStreams ? <Loader2 className="animate-spin" size={16} /> : <List size={16} />}
-                  Consultar streams via API
+                  Consultar streams da API
                 </button>
                 <button
                   type="button"
@@ -1374,7 +1825,7 @@ service flussonic reload`;
                     ? "SSH + API conectados"
                     : connectionHealth?.state === "degraded"
                       ? "Conexão parcial"
-                      : "Aguardando validação"}
+                    : "Aguardando conexão"}
                 </span>
               </div>
               <div className="mt-2 flex items-center justify-between gap-3">
@@ -1411,7 +1862,7 @@ service flussonic reload`;
               ) : (
                 <RefreshCw size={16} />
               )}
-              Sincronizar espelho
+              Sincronizar árvore
             </button>
           </div>
         </div>
@@ -1423,15 +1874,14 @@ service flussonic reload`;
                 Canais já no Flussonic
               </h3>
               <p className="text-xs text-neutral-500 mt-1">
-                Lidos direto do arquivo de configuração do servidor remoto.
+                Lidos da API do Flussonic e do storage remoto.
               </p>
             </div>
             <span className="text-xs text-neutral-400">{flussonicStreams.length} canais</span>
           </div>
           {flussonicStreams.length === 0 ? (
             <div className="text-sm text-neutral-500 border border-dashed border-white/10 rounded-xl p-4">
-              Conecte no SSH e clique em "Ler canais do Flussonic" para carregar as categorias já
-              criadas.
+              Conecte e sincronize a árvore para carregar os canais e categorias existentes.
             </div>
           ) : (
             <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -1440,11 +1890,29 @@ service flussonic reload`;
                   key={stream.name}
                   className="rounded-xl border border-white/10 bg-[#0f0f0f] p-4"
                 >
-                  <div className="font-bold">{stream.name}</div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="font-bold">{stream.name}</div>
+                    <span
+                      className={`inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-bold tracking-widest ${getStreamRuntimeState(stream).tone}`}
+                    >
+                      {getStreamRuntimeState(stream).label}
+                    </span>
+                  </div>
                   <div className="text-xs text-neutral-500 mt-1 break-all">
                     {stream.playlistPath
                       ? `playlist:///${stream.playlistPath}`
-                      : "Stream definido no Flussonic"}
+                      : "Stream registrado no Flussonic"}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-neutral-400">
+                    <span className="rounded-full border border-white/10 px-2 py-1">
+                      {stream.clientCount ?? 0} cliente(s)
+                    </span>
+                    <span className="rounded-full border border-white/10 px-2 py-1">
+                      IN {formatBitrate(stream.inputBitrate)}
+                    </span>
+                    <span className="rounded-full border border-white/10 px-2 py-1">
+                      OUT {formatBitrate(stream.outputBitrate)}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -1456,7 +1924,7 @@ service flussonic reload`;
           <div className="flex items-center justify-between gap-3 mb-4">
             <div>
               <h3 className="font-bold text-sm uppercase tracking-widest text-neutral-400">
-                Espelho do Flussonic
+                Árvore do Flussonic
               </h3>
               <p className="text-xs text-neutral-500 mt-1">
                 Categorias, canais, playlists e arquivos locais do servidor remoto.
@@ -1472,13 +1940,13 @@ service flussonic reload`;
               ) : (
                 <RefreshCw size={16} />
               )}
-              Atualizar espelho
+              Atualizar árvore
             </button>
           </div>
 
           {!flussonicMirror ? (
             <div className="text-sm text-neutral-500 border border-dashed border-white/10 rounded-xl p-4">
-              Conecte no SSH e sincronize o espelho para ver a árvore real do Flussonic.
+              Conecte e sincronize para ver a árvore real do Flussonic.
             </div>
           ) : (
             <div className="space-y-4">
@@ -1594,7 +2062,7 @@ service flussonic reload`;
           <div>
             <h2 className="text-xl font-bold">Criar canais automáticos</h2>
             <p className="text-sm text-neutral-400">
-              Baixe a categoria em fila paralela de 3 arquivos e recarregue o Flussonic em um passo
+              Baixe a categoria em fila paralela de 2 arquivos e recarregue o Flussonic em um passo
             </p>
           </div>
         </div>
@@ -1614,12 +2082,27 @@ service flussonic reload`;
                   />
                   {downloadJob.categoryName}
                 </div>
-                <div className="text-xs text-neutral-300 mt-1">
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {downloadFlowChips.map((chip) => (
+                    <span
+                      key={chip.key}
+                      className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${
+                        chip.active ? chip.tone : chip.idle
+                      }`}
+                    >
+                      {chip.label}
+                    </span>
+                  ))}
+                </div>
+                <div className="text-xs text-neutral-300 mt-2">
                   {downloadJob.state === "completed"
                     ? "Concluído"
                     : downloadJob.state === "failed"
-                      ? "Falhou"
+                      ? "Concluído com aviso ou aguardando a subida segura"
                       : `Baixando ${downloadJob.completedItems}/${downloadJob.totalItems} arquivos`}
+                </div>
+                <div className="mt-1 text-[11px] text-neutral-400">
+                  {downloadFlowHint}
                 </div>
               </div>
               <div className="text-right">
@@ -1642,40 +2125,163 @@ service flussonic reload`;
                 </div>
               ) : null}
               <div className="mt-1">
-                Fila paralela: 3 downloads simultâneos no servidor 173.208.244.141
+                Job ID: <span className="font-mono">{downloadJob.jobId}</span>
+              </div>
+              <div className="mt-1">
+                Fila paralela: 2 downloads simultâneos no servidor 173.208.244.141
               </div>
             </div>
-            <div className="mt-3 grid gap-2">
-              {downloadJob.items.slice(0, 5).map((item) => (
-                <div
-                  key={item.fileName}
-                  className="flex items-center justify-between gap-3 rounded-lg bg-black/30 px-3 py-2 text-xs"
-                >
-                  <div className="min-w-0">
-                    <div className="font-medium truncate">{item.name}</div>
-                    <div className="text-neutral-500 font-mono truncate">{item.fileName}</div>
+            <div className="mt-4 space-y-3 rounded-xl border border-white/10 bg-black/20 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-neutral-500">
+                    Conteúdo em tempo real
                   </div>
-                  <div className="text-right shrink-0">
-                    <div
-                      className={
-                        item.status === "done"
-                          ? "text-green-400"
-                          : item.status === "error"
-                            ? "text-red-400"
-                            : "text-blue-300"
-                      }
-                    >
-                      {item.status}
-                    </div>
-                    <div className="text-neutral-500">
-                      {item.totalBytes
-                        ? `${Math.round((item.downloadedBytes / item.totalBytes) * 100)}%`
-                        : `${Math.round(item.downloadedBytes / 1024 / 1024)} MB`}
-                    </div>
+                  <div className="text-xs text-neutral-400">
+                    {filteredDownloadItems.length} de {downloadJob.items.length} itens visíveis
                   </div>
                 </div>
-              ))}
+                <div className="w-full sm:w-80">
+                  <Input
+                    value={downloadItemSearch}
+                    onChange={(event) => setDownloadItemSearch(event.target.value)}
+                    placeholder="Pesquisar por nome, arquivo ou URL"
+                    className="h-9 border-white/10 bg-black/30 text-white placeholder:text-neutral-500"
+                  />
+                </div>
+              </div>
+
+              <ScrollArea className="h-[min(52vh,24rem)] pr-2">
+                <div className="grid gap-2">
+                  {filteredDownloadItems.length > 0 ? (
+                    filteredDownloadItems.map((item) => {
+                      const percent = item.totalBytes
+                        ? Math.max(0, Math.min(100, Math.round((item.downloadedBytes / item.totalBytes) * 100)))
+                        : item.status === "done"
+                          ? 100
+                          : 0;
+                      return (
+                        <div
+                          key={item.fileName}
+                          className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium truncate text-white">{item.name}</div>
+                              <div className="text-neutral-500 font-mono truncate">{item.fileName}</div>
+                              <div className="mt-2 h-1.5 rounded-full bg-black/50 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${
+                                    item.status === "error"
+                                      ? "bg-red-500"
+                                      : item.status === "done"
+                                        ? "bg-green-500"
+                                        : "bg-blue-500"
+                                  }`}
+                                  style={{ width: `${percent}%` }}
+                                />
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <div
+                                className={
+                                  item.status === "done"
+                                    ? "text-green-400"
+                                    : item.status === "error"
+                                      ? "text-red-400"
+                                      : "text-blue-300"
+                                }
+                              >
+                                {item.status}
+                              </div>
+                              <div className="text-neutral-500">
+                                {item.totalBytes
+                                  ? `${percent}%`
+                                  : item.downloadedBytes > 0
+                                    ? `${Math.round(item.downloadedBytes / 1024 / 1024)} MB`
+                                    : "aguardando"}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-white/10 bg-black/20 px-3 py-4 text-center text-xs text-neutral-500">
+                      Nenhum item corresponde à busca.
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
             </div>
+            <div className="mt-4 rounded-xl border border-white/10 bg-black/30 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-[10px] uppercase tracking-widest text-neutral-500">
+                  Linha do tempo
+                </div>
+                <div className="text-[10px] text-neutral-400">
+                  {downloadJobEvents.length} evento(s) gravado(s)
+                </div>
+              </div>
+              <ScrollArea className="mt-3 h-44 pr-2">
+                <div className="space-y-2">
+                  {downloadJobEvents.slice(-6).map((event) => (
+                    <div
+                      key={event.eventId}
+                      className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-[11px]"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span
+                          className={
+                            event.level === "success"
+                              ? "text-green-400"
+                              : event.level === "warning"
+                                ? "text-amber-400"
+                                : event.level === "error"
+                                  ? "text-red-400"
+                                  : "text-blue-300"
+                          }
+                        >
+                          {event.eventType}
+                        </span>
+                        <span className="text-neutral-500">
+                          {new Date(event.createdAt).toLocaleTimeString("pt-BR")}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-neutral-200">{event.message}</div>
+                    </div>
+                  ))}
+                  {downloadJobEvents.length === 0 ? (
+                    <div className="text-xs text-neutral-500">Nenhum evento registrado ainda.</div>
+                  ) : null}
+                </div>
+              </ScrollArea>
+            </div>
+
+            {downloadJob ? (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-emerald-300">
+                    Subida segura do canal
+                  </div>
+                  <div className="mt-1 text-xs text-emerald-100/80">
+                    Use este botão se a publicação automática não subir. Ele reaproveita os arquivos
+                    já baixados e só republica a playlist e o stream.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleManualPublishJob()}
+                  disabled={!canManuallyPublishJob || publishingJobId === downloadJob.jobId}
+                  className="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {publishingJobId === downloadJob.jobId ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : null}
+                  Subir canal com segurança
+                </button>
+              </div>
+            ) : null}
           </div>
         )}
 
@@ -1695,7 +2301,7 @@ service flussonic reload`;
                   <p className="text-xs text-neutral-500">{items.length} itens selecionados</p>
                 </div>
                 <button
-                  onClick={() => handleDownload(name)}
+                  onClick={() => openDownloadDialog(name)}
                   disabled={
                     sshStatus !== "connected" || downloadingCategory === name || jobInProgress
                   }
@@ -1704,15 +2310,275 @@ service flussonic reload`;
                   {downloadingCategory === name || jobInProgress ? (
                     <Loader2 className="animate-spin" size={16} />
                   ) : (
-                    <Send size={16} />
+                    <Repeat2 size={16} />
                   )}
-                  Criar canal no Flussonic
+                  Canal 24h em loop
                 </button>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      <Dialog open={downloadDialogOpen} onOpenChange={setDownloadDialogOpen}>
+      <DialogContent className="max-w-[min(980px,calc(100vw-1rem))] max-h-[88vh] overflow-hidden bg-[#111111] border-white/10 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-xl text-white">Escolher destino do canal</DialogTitle>
+            <DialogDescription className="text-neutral-300">
+              Selecione os filmes que vão entrar na fila e escolha se o canal vai para uma categoria já
+              existente do Flussonic ou para uma nova categoria.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex min-h-0 flex-col gap-4">
+            <div className="rounded-xl border border-white/10 bg-black/30 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs uppercase tracking-widest text-neutral-400">
+                    Categoria de origem
+                  </div>
+                  <div className="mt-2 text-sm font-semibold text-white">
+                    {downloadSourceCategory || "-"}
+                  </div>
+                  <div className="mt-1 text-xs text-neutral-300">
+                    {customCategories[downloadSourceCategory]?.length || 0} item(ns) disponíveis. A fila baixa
+                    em lotes de 3 no host remoto, sem depender do tamanho total da lista.
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={selectAllDownloadItems}
+                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-200 hover:bg-white/10 transition-colors"
+                  >
+                    Selecionar todos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearDownloadItems}
+                    className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-xs font-semibold text-neutral-400 hover:bg-white/5 transition-colors"
+                  >
+                    Limpar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <ScrollArea className="min-h-0 max-h-[calc(88vh-280px)] pr-3">
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label className="text-white">Itens disponíveis</Label>
+                    <div className="text-xs text-neutral-400">
+                      {downloadQueueOrder.length} na fila
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-black/20">
+                    <div className="max-h-[calc(88vh-300px)] space-y-2 overflow-y-auto p-3">
+                      {downloadSourceItems.map((item, index) => {
+                        const checked = downloadSelectedItemIds.includes(item.id);
+                        return (
+                          <label
+                            key={item.id}
+                            className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/10 bg-black/30 p-2.5 transition-colors hover:border-white/20"
+                          >
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={() => toggleDownloadSelectedItem(item.id)}
+                              className="mt-1 border-white/25 data-[state=checked]:border-purple-500 data-[state=checked]:bg-purple-600"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-semibold leading-snug text-white">
+                                {String(index + 1).padStart(2, "0")}. {item.name}
+                              </div>
+                              <div className="mt-1 break-all text-[11px] leading-snug text-neutral-400">
+                                {item.url}
+                              </div>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="text-xs text-neutral-400">
+                    Marque os itens desejados. Os downloads vão respeitar exatamente a ordem definida na
+                    fila ao lado.
+                  </div>
+                </div>
+
+                <div className="space-y-3 rounded-xl border border-white/10 bg-black/25 p-3.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label className="text-white">Fila manual</Label>
+                    <div className="text-xs text-neutral-400">
+                      {downloadQueueItems.length} item(ns)
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-black/20">
+                    <div className="max-h-[320px] space-y-2 overflow-y-auto p-3">
+                      {downloadQueueItems.length > 0 ? (
+                        downloadQueueItems.map((item, index) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center gap-3 rounded-lg border border-white/10 bg-black/30 p-2.5"
+                          >
+                            <div className="w-8 text-center text-xs font-bold text-neutral-400">
+                              {String(index + 1).padStart(2, "0")}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-sm font-semibold text-white">{item.name}</div>
+                              <div className="truncate text-[11px] text-neutral-500">{item.url}</div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => moveDownloadQueueItem(item.id, -1)}
+                                disabled={index === 0}
+                                className="rounded-md border border-white/10 bg-white/5 p-1.5 text-neutral-300 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                                title="Mover para cima"
+                              >
+                                <ArrowUp size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveDownloadQueueItem(item.id, 1)}
+                                disabled={index === downloadQueueItems.length - 1}
+                                className="rounded-md border border-white/10 bg-white/5 p-1.5 text-neutral-300 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                                title="Mover para baixo"
+                              >
+                                <ArrowDown size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => toggleDownloadSelectedItem(item.id)}
+                                className="rounded-md border border-red-500/20 bg-red-500/10 p-1.5 text-red-300 hover:bg-red-500/20"
+                                title="Remover da fila"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="rounded-lg border border-dashed border-white/10 bg-black/20 px-3 py-5 text-center text-xs text-neutral-500">
+                          Selecione os vídeos para montar a fila manualmente.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-3 rounded-xl border border-white/10 bg-black/30 p-3">
+                    <RadioGroup
+                      value={downloadTargetMode}
+                      onValueChange={(value) =>
+                        setDownloadTargetMode(value === "new" ? "new" : "existing")
+                      }
+                      className="grid gap-3"
+                    >
+                      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-black/30 p-3.5 transition-colors hover:border-white/20">
+                        <RadioGroupItem
+                          value="existing"
+                          className="mt-1"
+                          disabled={!flussonicMirror?.categories.length}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-white">
+                            Adicionar a uma categoria existente
+                          </div>
+                          <div className="text-xs text-neutral-400 mt-1">
+                            Reaproveita uma categoria já criada no servidor para receber este canal como uma
+                            nova pasta interna.
+                          </div>
+                        </div>
+                      </label>
+
+                      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-black/30 p-3.5 transition-colors hover:border-white/20">
+                        <RadioGroupItem value="new" className="mt-1" />
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-white">Criar nova categoria</div>
+                          <div className="text-xs text-neutral-400 mt-1">
+                            Cria uma nova pasta de categoria no Flussonic e salva o canal dentro dela.
+                          </div>
+                        </div>
+                      </label>
+                    </RadioGroup>
+
+                    {downloadTargetMode === "existing" ? (
+                      <div className="space-y-2">
+                        <Label htmlFor="existing-category">Categoria existente</Label>
+                        <Select value={downloadExistingCategory} onValueChange={setDownloadExistingCategory}>
+                          <SelectTrigger
+                            id="existing-category"
+                            className="bg-black/30 border-white/10 text-white"
+                          >
+                            <SelectValue placeholder="Selecione uma categoria do Flussonic" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(flussonicMirror?.categories || []).map((category) => (
+                              <SelectItem key={category.path} value={category.name}>
+                                {category.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {!flussonicMirror?.categories.length ? (
+                          <div className="text-xs text-amber-400">
+                            Nenhuma categoria existente foi encontrada. Escolha a opção de nova categoria.
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Label htmlFor="new-category">Nome da nova categoria</Label>
+                        <Input
+                          id="new-category"
+                          value={downloadNewCategory}
+                          onChange={(event) => setDownloadNewCategory(event.target.value)}
+                          placeholder="Ex: filmes-premium"
+                          className="bg-black/30 border-white/10 text-white placeholder:text-neutral-500"
+                        />
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <Label htmlFor="channel-name">Nome do canal</Label>
+                      <Input
+                        id="channel-name"
+                        value={downloadChannelName}
+                        onChange={(event) => setDownloadChannelName(event.target.value)}
+                        placeholder="Nome do canal no Flussonic"
+                        className="bg-black/30 border-white/10 text-white placeholder:text-neutral-500"
+                      />
+                      <div className="text-xs text-neutral-400">
+                        Esse nome vira a pasta do canal e o stream registrado no Flussonic.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </ScrollArea>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setDownloadDialogOpen(false)}
+              className="inline-flex items-center justify-center rounded-lg border border-white/10 bg-transparent px-4 py-2 text-sm font-semibold text-neutral-300 hover:bg-white/5 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleDownload()}
+              disabled={jobInProgress || downloadingCategory === downloadSourceCategory}
+              className="inline-flex items-center justify-center rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {jobInProgress && downloadingCategory === downloadSourceCategory ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Canal 24h em loop
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

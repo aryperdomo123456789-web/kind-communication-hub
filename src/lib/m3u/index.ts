@@ -1,7 +1,21 @@
 import { M3UItem, M3UParsed, M3UCategory } from "./types";
 import { detectType, extractSeasonEpisode } from "./parser-utils";
 
-export async function parseM3U(content: string): Promise<M3UParsed> {
+export interface ParseM3UOptions {
+  silent?: boolean;
+}
+
+function createM3UItemId() {
+  const webCrypto = globalThis.crypto as Crypto | undefined;
+  if (webCrypto?.randomUUID) {
+    return webCrypto.randomUUID();
+  }
+
+  const fallback = `${Date.now()}-${Math.random()}-${Math.random()}`;
+  return `m3u_${fallback.replace(/[^a-z0-9]+/gi, "").slice(0, 24)}`;
+}
+
+export async function parseM3U(content: string, options: ParseM3UOptions = {}): Promise<M3UParsed> {
   let finalContent = content;
 
   if (content.trim().startsWith("http")) {
@@ -12,7 +26,9 @@ export async function parseM3U(content: string): Promise<M3UParsed> {
         finalContent = await response.text();
       }
     } catch (e) {
-      console.error("Falha ao buscar M3U via URL:", e);
+      if (!options.silent) {
+        console.error("Falha ao buscar M3U via URL:", e);
+      }
     }
   }
 
@@ -56,7 +72,7 @@ export async function parseM3U(content: string): Promise<M3UParsed> {
       }
 
       items.push({
-        id: Math.random().toString(36).substring(7),
+        id: createM3UItemId(),
         name: currentName || "Unknown",
         logo: currentLogo || "",
         group: currentGroup || "Uncategorized",

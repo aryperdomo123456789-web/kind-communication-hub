@@ -125,8 +125,10 @@ export function FlussonicView({ panelUsername }: { panelUsername: string }) {
             <Tv size={24} />
           </div>
           <div>
-            <h2 className="text-xl font-bold">Gestão Flussonic PRO</h2>
-            <p className="text-sm text-neutral-400">Automatização de Canais 24h e Categorias no servidor 173.208.244.141</p>
+            <h2 className="text-xl font-bold">Gestão do Flussonic</h2>
+            <p className="text-sm text-neutral-400">
+              Crie categorias, registre canais 24h e sincronize a estrutura real do servidor
+            </p>
           </div>
         </div>
 
@@ -169,7 +171,7 @@ export function FlussonicView({ panelUsername }: { panelUsername: string }) {
                 className="w-full py-4 bg-orange-600 hover:bg-orange-700 disabled:bg-neutral-800 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-orange-600/20"
               >
                 {loading ? <Loader2 className="animate-spin" /> : <FolderPlus size={20} />}
-                Forjar Categoria no Servidor
+                Criar Categoria no Servidor
               </button>
             </div>
           </div>
@@ -239,7 +241,7 @@ export function FlussonicView({ panelUsername }: { panelUsername: string }) {
 
             <div className="bg-black/20 rounded-2xl p-6 border border-white/5 space-y-4">
               <h3 className="font-bold text-orange-400 flex items-center gap-2">
-                <RefreshCcw size={18} className={isRefreshing ? "animate-spin" : ""} /> Categorias no Servidor
+                <RefreshCcw size={18} className={isRefreshing ? "animate-spin" : ""} /> Categorias no servidor
               </h3>
               <div className="flex flex-wrap gap-2">
                 {serverCategories.length > 0 ? (
@@ -254,12 +256,13 @@ export function FlussonicView({ panelUsername }: { panelUsername: string }) {
               </div>
 
               <h3 className="font-bold text-orange-400 flex items-center gap-2 mt-6">
-                <AlertCircle size={18} /> Lógica de Guerrilha
+                <AlertCircle size={18} /> Fluxo operacional
               </h3>
               <ul className="space-y-3 text-sm text-neutral-400">
                 <li className="flex gap-2">
                   <span className="text-orange-500 font-bold">1.</span>
-                  Os vídeos devem estar fisicamente no servidor em <code>/opt/flussonic/priv/</code>
+                  Os vídeos ou URLs precisam estar acessíveis para o servidor registrar a
+                  playlist em <code>/opt/flussonic/priv/</code>
                 </li>
                 <li className="flex gap-2">
                   <span className="text-orange-500 font-bold">2.</span>
@@ -267,12 +270,14 @@ export function FlussonicView({ panelUsername }: { panelUsername: string }) {
                 </li>
                 <li className="flex gap-2">
                   <span className="text-orange-500 font-bold">3.</span>
-                  O arquivo <code>flussonic.conf</code> será atualizado com <code>input vod://vod/{selectedCat ? selectedCat + '/' : ''}{channelName || 'canal'}.txt</code> e o serviço recarregado.
+                  O painel grava a playlist, registra o stream pela API e atualiza o espelho do
+                  servidor sem depender de rotas fictícias ou validação manual.
                 </li>
               </ul>
               <div className="mt-6 p-4 bg-orange-500/5 rounded-xl border border-orange-500/10">
                 <p className="text-xs text-orange-300 italic italic">
-                  "Automatizar é o segredo da escala, parça. Enquanto os Nutella configuram na mão, a gente dá deploy em massa." - Mago Dev
+                  A operação fica centralizada no painel, com persistência real no servidor e
+                  resposta imediata na interface.
                 </p>
               </div>
             </div>

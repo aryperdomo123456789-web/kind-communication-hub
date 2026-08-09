@@ -33,6 +33,15 @@ export interface M3USeriesCategory {
 export interface FlussonicStreamInfo {
   name: string;
   playlistPath?: string;
+  status?: string;
+  running?: boolean;
+  alive?: boolean;
+  clientCount?: number;
+  inputBitrate?: number;
+  outputBitrate?: number;
+  lastAccessAt?: string;
+  openedAt?: string;
+  stats?: Record<string, unknown>;
 }
 
 export interface FlussonicChannelInfo {

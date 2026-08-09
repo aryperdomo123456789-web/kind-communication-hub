@@ -9,6 +9,31 @@ import {
 } from "@/lib/ssh.functions";
 import { useState } from "react";
 
+function getStreamStatusBadge(stream: FlussonicStreamInfo) {
+  const status = (stream.status || "").toLowerCase();
+  if (stream.running || status.includes("run")) {
+    return {
+      label: "ONLINE",
+      tone: "bg-green-500/15 text-green-400 border-green-500/20",
+      hint: "Stream online no Flussonic",
+    };
+  }
+
+  if (stream.playlistPath) {
+    return {
+      label: "PRONTO",
+      tone: "bg-amber-500/15 text-amber-400 border-amber-500/20",
+      hint: "Playlist pronta para subir",
+    };
+  }
+
+  return {
+    label: "SEM STREAM",
+    tone: "bg-white/10 text-neutral-300 border-white/10",
+    hint: "Ainda sem playlist vinculada",
+  };
+}
+
 interface CustomCategoriesViewProps {
   panelUsername: string;
   categories: Record<string, M3UItem[]>;
@@ -91,17 +116,25 @@ export function CustomCategoriesView({
           ) : (
             <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
               {flussonicStreams.map((stream) => (
+                (() => {
+                  const badge = getStreamStatusBadge(stream);
+                  return (
                 <div
                   key={stream.name}
                   className="rounded-xl border border-white/10 bg-[#0f0f0f] p-4"
                 >
-                  <div className="font-bold">{stream.name}</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-bold">{stream.name}</div>
+                    <span className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-widest ${badge.tone}`}>
+                      {badge.label}
+                    </span>
+                  </div>
                   <div className="text-xs text-neutral-500 mt-1 break-all">
-                    {stream.playlistPath
-                      ? `playlist:///${stream.playlistPath}`
-                      : "Stream pronto no Flussonic"}
+                    {stream.playlistPath ? `playlist:///${stream.playlistPath}` : badge.hint}
                   </div>
                 </div>
+                  );
+                })()
               ))}
             </div>
           )}
@@ -135,14 +168,22 @@ export function CustomCategoriesView({
         ) : (
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
             {flussonicStreams.map((stream) => (
-              <div key={stream.name} className="rounded-xl border border-white/10 bg-[#0f0f0f] p-4">
-                <div className="font-bold">{stream.name}</div>
-                <div className="text-xs text-neutral-500 mt-1 break-all">
-                  {stream.playlistPath
-                    ? `playlist:///${stream.playlistPath}`
-                    : "Stream pronto no Flussonic"}
-                </div>
-              </div>
+              (() => {
+                const badge = getStreamStatusBadge(stream);
+                return (
+                  <div key={stream.name} className="rounded-xl border border-white/10 bg-[#0f0f0f] p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="font-bold">{stream.name}</div>
+                      <span className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-widest ${badge.tone}`}>
+                        {badge.label}
+                      </span>
+                    </div>
+                    <div className="text-xs text-neutral-500 mt-1 break-all">
+                      {stream.playlistPath ? `playlist:///${stream.playlistPath}` : badge.hint}
+                    </div>
+                  </div>
+                );
+              })()
             ))}
           </div>
         )}

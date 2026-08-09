@@ -1,21 +1,30 @@
 import { List, Plus, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
+import type { SavedM3UListRecord } from "@/lib/flussonic-connection-store";
 
 interface SettingsProps {
-  lists: { name: string; url: string }[];
+  lists: SavedM3UListRecord[];
   activeUrl: string;
-  onAdd: (name: string, url: string) => void;
+  onAdd: (name: string, url: string) => void | Promise<void>;
+  onActivate: (url: string) => void | Promise<void>;
+  onDisconnect: () => void | Promise<void>;
   onRemove: (url: string) => void;
-  onProcess: (url: string) => void;
 }
 
-export function SettingsView({ lists, activeUrl, onAdd, onRemove, onProcess }: SettingsProps) {
+export function SettingsView({
+  lists,
+  activeUrl,
+  onAdd,
+  onActivate,
+  onDisconnect,
+  onRemove,
+}: SettingsProps) {
   const [newName, setNewName] = useState("");
   const [newUrl, setNewUrl] = useState("");
 
   const handleAdd = () => {
     if (newName && newUrl) {
-      onAdd(newName, newUrl);
+      void onAdd(newName, newUrl);
       setNewName("");
       setNewUrl("");
     }
@@ -82,15 +91,23 @@ export function SettingsView({ lists, activeUrl, onAdd, onRemove, onProcess }: S
               </div>
               <div className="flex items-center justify-between md:justify-end gap-3 w-full md:w-auto">
                 {activeUrl === list.url ? (
-                  <div className="flex items-center gap-2 text-blue-400 font-bold text-sm bg-blue-400/10 px-4 py-2 rounded-lg">
-                    <CheckCircle2 size={16} /> Ativa Agora
+                  <div className="flex flex-col md:items-end gap-2">
+                    <div className="inline-flex items-center gap-2 text-blue-300 font-bold text-sm bg-blue-400/10 px-4 py-2 rounded-lg border border-blue-500/20">
+                      <CheckCircle2 size={16} /> Conectada agora
+                    </div>
+                    <button
+                      onClick={() => void onDisconnect()}
+                      className="flex-1 md:flex-none px-6 py-2.5 bg-blue-600/15 hover:bg-blue-600/25 text-blue-300 rounded-lg text-sm font-bold transition-all border border-blue-500/20"
+                    >
+                      Desconectar
+                    </button>
                   </div>
                 ) : (
                   <button
-                    onClick={() => onProcess(list.url)}
+                    onClick={() => void onActivate(list.url)}
                     className="flex-1 md:flex-none px-6 py-2.5 bg-neutral-800 hover:bg-blue-600 rounded-lg text-sm font-bold transition-all"
                   >
-                    Carregar Esta Lista
+                    Conectar
                   </button>
                 )}
                 <button
