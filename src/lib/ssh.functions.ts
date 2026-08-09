@@ -855,10 +855,10 @@ async function checkAndStoreConnectionProfile(
     apiMessage: api.ok ? "" : (api.message || "Erro na API"),
   });
 
-  const stored = await saveFlussonicConnectionProfile({
+  const stored = (await saveFlussonicConnectionProfile({
     ...profile,
-    lastHealth: health }) as FlussonicConnectionProfile
-  });
+    lastHealth: health
+  })) as unknown as FlussonicConnectionProfile;
 
   return { health, stored };
 }
