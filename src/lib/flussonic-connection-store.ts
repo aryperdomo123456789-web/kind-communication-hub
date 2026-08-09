@@ -155,7 +155,7 @@ export async function getSavedFlussonicConnectionProfile(panelUsername: string, 
     ? "SELECT * FROM flussonic_profiles WHERE panel_username = ? AND profile_id = ?" 
     : "SELECT * FROM flussonic_profiles WHERE panel_username = ? AND is_active = 1 LIMIT 1";
   const params = profileId ? [panelUsername.trim(), profileId] : [panelUsername.trim()];
-  const row = await dbGet(query, ...params) as any;
+  const row = await dbGet(query, params) as any;
   if (!row) return null;
   return {
     profileId: row.profile_id,
