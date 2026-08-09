@@ -101,7 +101,21 @@ function normalizeApiBaseUrl(ip: string, baseUrl?: string): string {
   return `http://${ip}:80`;
 }
 
+export interface SshResponse {
+  success: boolean;
+  message: string;
+  folder?: string;
+  timestamp?: string;
+  streamName?: string;
+  playlistPath?: string;
+  output?: string;
+  jobId?: string;
+  progress?: number;
+  status?: string;
+}
+
 function buildHealthSnapshot(input: {
+
   sshOk: boolean;
   apiOk: boolean;
   sshMessage?: string;
