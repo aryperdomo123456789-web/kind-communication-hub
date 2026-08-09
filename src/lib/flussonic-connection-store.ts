@@ -194,7 +194,7 @@ function rowToProfile(row: {
       ? (JSON.parse(row.last_health_json) as FlussonicConnectionHealth)
       : undefined,
     isActive: row.is_active === 1,
-  } as SavedFlussonicConnectionProfile;
+  } as any;
 }
 
 function rowToUser(row: {
