@@ -90,12 +90,12 @@ async function initDb() {
     )
   `);
 
-  const existing = await dbGet("SELECT username FROM users WHERE username = ?", DEFAULT_PANEL_ACCOUNT.username);
+  const existing = await dbGet("SELECT username FROM users WHERE username = ?", [DEFAULT_PANEL_ACCOUNT.username]);
   if (!existing) {
     const now = new Date().toISOString();
     await dbRun(
       "INSERT INTO users (username, password, created_at, updated_at, active_flussonic_profile_id) VALUES (?, ?, ?, ?, ?)",
-      DEFAULT_PANEL_ACCOUNT.username, DEFAULT_PANEL_ACCOUNT.password, now, now, null
+      [DEFAULT_PANEL_ACCOUNT.username, DEFAULT_PANEL_ACCOUNT.password, now, now, null]
     );
   }
 }
@@ -103,7 +103,7 @@ async function initDb() {
 initDb().catch(console.error);
 
 export async function getSavedPanelAccount(username: string = DEFAULT_PANEL_ACCOUNT.username): Promise<PanelUserRecord | null> {
-  const row = await dbGet("SELECT * FROM users WHERE username = ?", username.trim()) as any;
+  const row = await dbGet("SELECT * FROM users WHERE username = ?", [username.trim()]) as any;
   if (!row) return null;
   return {
     username: row.username,
@@ -118,13 +118,13 @@ export async function savePanelAccount(username: string, password: string) {
   const now = new Date().toISOString();
   await dbRun(
     "INSERT INTO users (username, password, created_at, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(username) DO UPDATE SET password=excluded.password, updated_at=excluded.updated_at",
-    username.trim(), password, now, now
+    [username.trim(), password, now, now]
   );
   return getSavedPanelAccount(username);
 }
 
 export async function listSavedFlussonicConnectionProfiles(panelUsername: string): Promise<SavedFlussonicConnectionProfile[]> {
-  const rows = await dbAll("SELECT * FROM flussonic_profiles WHERE panel_username = ? ORDER BY updated_at DESC", panelUsername.trim()) as any[];
+  const rows = await dbAll("SELECT * FROM flussonic_profiles WHERE panel_username = ? ORDER BY updated_at DESC", [panelUsername.trim()]) as any[];
   return rows.map(row => ({
     profileId: row.profile_id,
     panelUsername: row.panel_username,
@@ -175,7 +175,7 @@ export async function saveFlussonicConnectionProfile(profile: SavedFlussonicConn
   const now = new Date().toISOString();
   
   if (profile.isActive) {
-    await dbRun("UPDATE flussonic_profiles SET is_active = 0 WHERE panel_username = ?", profile.panelUsername.trim());
+    await dbRun("UPDATE flussonic_profiles SET is_active = 0 WHERE panel_username = ?", [profile.panelUsername.trim()]);
   }
 
   await dbRun(`
@@ -188,26 +188,28 @@ export async function saveFlussonicConnectionProfile(profile: SavedFlussonicConn
       ssh_port=excluded.ssh_port, ssh_password=excluded.ssh_password, api_base_url=excluded.api_base_url,
       api_username=excluded.api_username, api_password=excluded.api_password, api_streams_path=excluded.api_streams_path,
       updated_at=excluded.updated_at, last_health_json=excluded.last_health_json, is_active=excluded.is_active
-  `, 
-    id, profile.panelUsername.trim(), profile.profileName || profile.serverIp, profile.serverIp, profile.sshUser, 
-    profile.sshPort, profile.sshPassword, profile.apiBaseUrl, profile.apiUsername, profile.apiPassword, 
-    profile.apiStreamsPath, profile.createdAt || now, now, profile.lastHealth ? JSON.stringify(profile.lastHealth) : null, profile.isActive ? 1 : 0
+  `,
+    [
+      id, profile.panelUsername.trim(), profile.profileName || profile.serverIp, profile.serverIp, profile.sshUser,
+      profile.sshPort, profile.sshPassword, profile.apiBaseUrl, profile.apiUsername, profile.apiPassword,
+      profile.apiStreamsPath, profile.createdAt || now, now, profile.lastHealth ? JSON.stringify(profile.lastHealth) : null, profile.isActive ? 1 : 0
+    ]
   );
 
   return getSavedFlussonicConnectionProfile(profile.panelUsername, id);
 }
 
 export async function clearFlussonicConnectionProfile(panelUsername: string) {
-  await dbRun("UPDATE flussonic_profiles SET is_active = 0 WHERE panel_username = ?", panelUsername.trim());
+  await dbRun("UPDATE flussonic_profiles SET is_active = 0 WHERE panel_username = ?", [panelUsername.trim()]);
 }
 
 export async function deleteFlussonicConnectionProfile(panelUsername: string, profileId: string) {
-  await dbRun("DELETE FROM flussonic_profiles WHERE panel_username = ? AND profile_id = ?", panelUsername.trim(), profileId);
+  await dbRun("DELETE FROM flussonic_profiles WHERE panel_username = ? AND profile_id = ?", [panelUsername.trim(), profileId]);
   return true;
 }
 
 export async function setActiveFlussonicConnectionProfile(panelUsername: string, profileId: string) {
-  await dbRun("UPDATE flussonic_profiles SET is_active = 0 WHERE panel_username = ?", panelUsername.trim());
-  await dbRun("UPDATE flussonic_profiles SET is_active = 1 WHERE panel_username = ? AND profile_id = ?", panelUsername.trim(), profileId);
+  await dbRun("UPDATE flussonic_profiles SET is_active = 0 WHERE panel_username = ?", [panelUsername.trim()]);
+  await dbRun("UPDATE flussonic_profiles SET is_active = 1 WHERE panel_username = ? AND profile_id = ?", [panelUsername.trim(), profileId]);
   return getSavedFlussonicConnectionProfile(panelUsername, profileId);
 }

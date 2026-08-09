@@ -121,7 +121,7 @@ export function ServerView({
   const deleteCategoryFn = useServerFn(deleteFlussonicCategory);
   const startJobFn = useServerFn(startFlussonicDownloadJob);
   const readJobStatusFn = useServerFn(fetchFlussonicDownloadJobStatus);
-  const apiStreamsFn = useServerFn(fetchFlussonicApiStreams);
+  const apiStreamsFn = useServerFn(fetchFlussonicStreams);
   const publicPlaylistFn = useServerFn(generateFlussonicPublicPlaylist);
   const loadProfileFn = useServerFn(loadFlussonicConnectionProfile);
   const refreshProfileFn = useServerFn(refreshFlussonicConnectionProfile);
@@ -218,7 +218,7 @@ service flussonic reload`;
             sshPort: nextSshPort,
             flussonicConfPath: "/etc/flussonic/flussonic.conf",
           },
-        })) as { success: boolean; message: string; streams: FlussonicStreamInfo[] };
+        })) as any;
 
         if (result.success) {
           onFlussonicStreamsChange(result.streams);
