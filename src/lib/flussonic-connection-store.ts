@@ -8,6 +8,7 @@ export type FlussonicConnectionHealthState = "connected" | "degraded" | "disconn
 
 export interface FlussonicConnectionHealth {
   state: FlussonicConnectionHealthState;
+  lastCheckedAt: string;
   sshOk: boolean;
   apiOk: boolean;
   message: string;

@@ -23,15 +23,14 @@ import {
   deleteFlussonicCategory,
   deleteFlussonicChannel,
   deleteSavedFlussonicProfile,
-  fetchFlussonicApiStreams,
-  fetchFlussonicDownloadJobStatus,
   fetchFlussonicMirror,
   fetchFlussonicStreams,
   generateFlussonicPublicPlaylist,
   loadFlussonicConnectionProfile,
   refreshFlussonicConnectionProfile,
   startFlussonicDownloadJob,
-  validateSshConnection,
+  fetchFlussonicDownloadJobStatus,
+  connectSsh as validateSshConnection,
   type SshResponse,
 } from "@/lib/ssh.functions";
 import {

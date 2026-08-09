@@ -189,7 +189,14 @@ export const connectSsh = createServerFn({ method: "POST" })
       profileName: data.profileName || `Servidor ${data.host}`,
       isActive: true,
     };
-    return await checkAndStoreConnectionProfile(profile);
+    const result = await checkAndStoreConnectionProfile(profile);
+    return {
+      success: result.health.state !== "disconnected",
+      message: result.health.message,
+      health: result.health,
+      profile: result.stored,
+      streams: []
+    } as any;
   });
 
 export const getPanelAccount = createServerFn({ method: "POST" })
