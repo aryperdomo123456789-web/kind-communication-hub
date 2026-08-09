@@ -823,7 +823,7 @@ async function checkAndStoreConnectionProfile(
   profile: FlussonicConnectionProfile,
 ): Promise<{ health: FlussonicConnectionHealth; stored: FlussonicConnectionProfile }> {
   const sshOk = await new Promise<boolean>((resolve) => {
-    const conn = new Client();
+    const conn = new SSH({
     conn
       .on("ready", () => {
         conn.end();
@@ -1254,7 +1254,7 @@ PY
 `;
 
       return new Promise((resolve) => {
-        const conn = new Client();
+        const conn = new SSH({
 
         conn
           .on("ready", async () => {
@@ -1304,7 +1304,7 @@ export const fetchFlussonicStreams = createServerFn({ method: "POST" })
       data,
     }): Promise<{ success: boolean; message: string; streams: FlussonicStreamInfo[] }> => {
       return new Promise((resolve) => {
-        const conn = new Client();
+        const conn = new SSH({
 
         conn
           .on("ready", async () => {
@@ -1356,7 +1356,7 @@ export const downloadCategoryToServer = createServerFn({ method: "POST" })
     const { streamName, playlistPath, script } = buildProvisionScript(data);
 
     return new Promise((resolve) => {
-      const conn = new Client();
+      const conn = new SSH({
 
       conn
         .on("ready", async () => {
@@ -1441,7 +1441,7 @@ export const startFlussonicDownloadJob = createServerFn({ method: "POST" })
     const plan = buildQueuedDownloadScript(data);
 
     return new Promise((resolve) => {
-      const conn = new Client();
+      const conn = new SSH({
 
       conn
         .on("ready", async () => {
@@ -1499,7 +1499,7 @@ export const fetchFlussonicDownloadJobStatus = createServerFn({ method: "POST" }
       status: FlussonicDownloadJobStatus | null;
     }> => {
       return new Promise((resolve) => {
-        const conn = new Client();
+        const conn = new SSH({
 
         conn
           .on("ready", async () => {
@@ -1656,7 +1656,7 @@ export const deleteFlussonicChannel = createServerFn({ method: "POST" })
     });
 
     return new Promise((resolve) => {
-      const conn = new Client();
+      const conn = new SSH({
 
       conn
         .on("ready", async () => {
@@ -1709,7 +1709,7 @@ export const deleteFlussonicCategory = createServerFn({ method: "POST" })
     });
 
     return new Promise((resolve) => {
-      const conn = new Client();
+      const conn = new SSH({
 
       conn
         .on("ready", async () => {
